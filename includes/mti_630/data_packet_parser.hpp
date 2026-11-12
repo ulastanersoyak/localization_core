@@ -63,6 +63,7 @@ struct Xbus
 
   static constexpr double rad2deg = 57.295779513082320876798154814105;
   static constexpr double sampleTimeFineHz = 10000.0;
+  static constexpr double standardGravity = 9.80665; // [m/s^2]
 
   static double
   asinClamped (double x)
@@ -90,9 +91,16 @@ struct Xbus
     eulerAvailable = true;
   }
 
-  // Horizontal acceleration {east, north} in the local frame, from free
-  // acceleration if present, otherwise by rotating the raw acceleration with
-  // the orientation quaternion (gravity only affects the vertical axis).
+  // Acceleration {east, north, up} in the local frame with gravity removed,
+  // from free acceleration if present, otherwise by rotating the raw
+  // acceleration with the orientation quaternion and subtracting gravity.
+  // Any error in gravity shows up as a constant vertical acceleration bias,
+  // so pass the local value if it is known (Gazebo defaults to 9.8).
+  [[nodiscard]] std::optional<std::array<double, 3>>
+  accelerationENU (double gravity = standardGravity) const;
+
+  // The horizontal part of accelerationENU(), which does not depend on
+  // gravity.
   [[nodiscard]] std::optional<std::array<double, 2>>
   horizontalAccelerationEN () const;
 };

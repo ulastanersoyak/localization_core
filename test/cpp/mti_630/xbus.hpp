@@ -154,6 +154,53 @@ xbus_parse_test ()
   check_near ((*rotated_acc)[0], 0.0, 1e-9, "rotated acceleration east");
   check_near ((*rotated_acc)[1], 2.0, 1e-9, "rotated acceleration north");
 
+  const auto free_enu = xbus.accelerationENU ();
+  check (free_enu.has_value (), "xbus acceleration enu");
+  check_near ((*free_enu)[2], 0.5, 1e-6, "free acceleration up as given");
+
+  // Climbing at 2 m/s^2 while level.
+  Xbus climbing{};
+  climbing.accAvailable = true;
+  climbing.acc = { 0.0, 0.0, Xbus::standardGravity + 2.0 };
+  climbing.quaternionAvailable = true;
+  climbing.quat = { 1.0, 0.0, 0.0, 0.0 };
+  const auto climbing_acc = climbing.accelerationENU ();
+  check (climbing_acc.has_value (), "climbing acceleration");
+  check_near ((*climbing_acc)[2], 2.0, 1e-9, "climbing acceleration up");
+
+  // At rest rolled 90 degrees: gravity is on the sensor y axis and must
+  // still be removed from up, not leak into the horizontal.
+  Xbus rolled{};
+  rolled.accAvailable = true;
+  rolled.acc = { 0.0, 9.8, 0.0 };
+  rolled.quaternionAvailable = true;
+  rolled.quat = { std::sqrt (0.5), std::sqrt (0.5), 0.0, 0.0 };
+  const auto rolled_acc = rolled.accelerationENU (9.8);
+  check (rolled_acc.has_value (), "rolled acceleration");
+  check_near ((*rolled_acc)[0], 0.0, 1e-9, "rolled acceleration east");
+  check_near ((*rolled_acc)[1], 0.0, 1e-9, "rolled acceleration north");
+  check_near ((*rolled_acc)[2], 0.0, 1e-9, "rolled acceleration up");
+
+  // NED: down is positive, so the at-rest reading is -g on z.
+  Xbus ned{};
+  ned.accAvailable = true;
+  ned.acc = { 1.0, 0.5, -Xbus::standardGravity };
+  ned.quaternionAvailable = true;
+  ned.quat = { 1.0, 0.0, 0.0, 0.0 };
+  ned.quatFrame = xbus_frame::NED;
+  const auto ned_acc = ned.accelerationENU ();
+  check (ned_acc.has_value (), "ned acceleration");
+  check_near ((*ned_acc)[0], 0.5, 1e-9, "ned acceleration east");
+  check_near ((*ned_acc)[1], 1.0, 1e-9, "ned acceleration north");
+  check_near ((*ned_acc)[2], 0.0, 1e-9, "ned acceleration up");
+
+  Xbus ned_free{};
+  ned_free.freeAccAvailable = true;
+  ned_free.freeAcc = { 0.0, 0.0, 1.5 }; // sinking
+  ned_free.freeAccFrame = xbus_frame::NED;
+  check_near ((*ned_free.accelerationENU ())[2], -1.5, 1e-9,
+              "ned free acceleration up");
+
   // Corrupted length must not read past the end.
   auto truncated = packet;
   truncated[3] = static_cast<std::uint8_t> (truncated[3] + 10);

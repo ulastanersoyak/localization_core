@@ -19,6 +19,11 @@ class gps
   std::ifstream replay_{};
   std::string pending_{};
   std::optional<double> hdop_{};
+  // Latest GGA, and an RMC fix waiting for the GGA of its epoch.
+  std::string gga_time_{};
+  std::optional<double> gga_altitude_m_{};
+  std::optional<gps_fix> pending_fix_{};
+  std::string pending_time_{};
 
   // Next line from the port or the replay file. nullopt when stopped or when
   // the replay file is exhausted.
@@ -36,8 +41,11 @@ public:
   // is ignored). Throws std::runtime_error if the file cannot be opened.
   explicit gps (const std::filesystem::path &replay_file);
 
-  // Feeds one NMEA sentence. Returns a fix for valid RMC sentences, GGA
-  // sentences only update the HDOP attached to later fixes.
+  // Feeds one NMEA sentence. Altitude and HDOP are only in GGA, which
+  // receivers send just after the RMC of the same epoch, so a valid RMC is
+  // held until its GGA arrives and that sentence returns the fix. An altitude
+  // from the previous epoch would be a second stale on a climbing vehicle. If
+  // the GGA came first, or no GGA was ever seen, the RMC returns the fix.
   [[nodiscard]] std::optional<gps_fix>
   process_sentence (std::string_view sentence);
 

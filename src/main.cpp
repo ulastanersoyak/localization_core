@@ -33,9 +33,10 @@ constexpr std::size_t imu_print_divider = 10; // 100 Hz IMU -> 10 Hz output
 void
 print_header ()
 {
-  std::cout << "source,fix_utc,age_s,lat,lon,easting,northing,vel_east,"
-               "vel_north,sigma_east,sigma_north,gps_easting,gps_northing,"
-               "ahead_easting,ahead_northing,status\n";
+  std::cout << "source,fix_utc,age_s,lat,lon,alt,easting,northing,vel_east,"
+               "vel_north,vel_up,sigma_east,sigma_north,sigma_up,gps_easting,"
+               "gps_northing,gps_alt,ahead_easting,ahead_northing,ahead_alt,"
+               "status\n";
 }
 
 void
@@ -53,21 +54,27 @@ print_row (std::string_view source, const position_estimator &estimator,
   std::cout << std::fixed << source << ',' << est->position.time () << ','
             << std::setprecision (2) << est->age_s << ','
             << std::setprecision (8) << lat << ',' << lon << ','
-            << std::setprecision (3) << est->position.easting () << ','
-            << est->position.northing () << ',' << est->velocity_east_mps
-            << ',' << est->velocity_north_mps << ',' << est->sigma_east_m
-            << ',' << est->sigma_north_m << ',';
+            << std::setprecision (3) << est->altitude_m << ','
+            << est->position.easting () << ',' << est->position.northing ()
+            << ',' << est->velocity_east_mps << ',' << est->velocity_north_mps
+            << ',' << est->velocity_up_mps << ',' << est->sigma_east_m << ','
+            << est->sigma_north_m << ',' << est->sigma_up_m << ',';
   if (fix)
     {
-      std::cout << fix->position.easting () << ','
-                << fix->position.northing ();
+      std::cout << fix->position.easting () << ',' << fix->position.northing ()
+                << ',';
+      if (fix->altitude_m)
+        {
+          std::cout << *fix->altitude_m;
+        }
     }
   else
     {
-      std::cout << ',';
+      std::cout << ",,";
     }
   std::cout << ',' << ahead->position.easting () << ','
-            << ahead->position.northing () << ',' << status << '\n';
+            << ahead->position.northing () << ',' << ahead->altitude_m << ','
+            << status << '\n';
 }
 
 std::string_view

@@ -1,8 +1,12 @@
+#ifdef HAVE_GPS
+#include "gps/gps.hpp"
+#endif
 #include "geo/utm.hpp"
 #include "kalman/kalman.hpp"
 #include "mti_630/xbus.hpp"
 #include "parser/parser.hpp"
 #include "parser/rmc.hpp"
+#include "pole/pole.hpp"
 
 #include <exception>
 #include <iostream>
@@ -39,5 +43,11 @@ main ()
   run ("estimator_gps_only", estimator_gps_only_test);
   run ("estimator_course", estimator_course_test);
   run ("estimator_imu", estimator_imu_test);
+  run ("estimator_altitude", estimator_altitude_test);
+  run ("estimator_vertical_imu", estimator_vertical_imu_test);
+  run ("pole_estimator", pole_estimator_test);
+#ifdef HAVE_GPS
+  run ("gps_altitude_pairing", gps_altitude_pairing_test);
+#endif
   return failures == 0 ? 0 : 1;
 }

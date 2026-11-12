@@ -27,6 +27,22 @@ gps::gps (const std::filesystem::path &replay_file) : replay_{ replay_file }
     }
 }
 
+namespace
+{
+std::optional<double>
+parse_number (std::string_view field)
+{
+  double value{ 0 };
+  const auto [ptr, ec]
+      = std::from_chars (field.data (), field.data () + field.size (), value);
+  if (ec != std::errc{} || ptr != field.data () + field.size ())
+    {
+      return std::nullopt;
+    }
+  return value;
+}
+} // namespace
+
 std::optional<std::string>
 gps::next_line (const std::stop_token &stop)
 {
@@ -80,23 +96,31 @@ gps::process_sentence (std::string_view sentence)
     {
       try
         {
-          // $GNGGA,072223.00,3958.59211,N,03244.28744,E,1,05,2.30,...
+          // $GNGGA,072223.00,3958.59211,N,03244.28744,E,1,05,2.30,894.2,M,...
           const auto fields = nmea_fields (sentence);
-          if (fields.size () > 8 && !fields[8].empty ())
+          if (fields.size () <= 9)
             {
-              double hdop{ 0 };
-              const auto f = fields[8];
-              const auto [ptr, ec]
-                  = std::from_chars (f.data (), f.data () + f.size (), hdop);
-              if (ec == std::errc{} && ptr == f.data () + f.size ())
-                {
-                  hdop_ = hdop;
-                }
+              return std::nullopt;
+            }
+          if (const auto hdop = parse_number (fields[8]))
+            {
+              hdop_ = hdop;
+            }
+          gga_time_ = fields[1];
+          gga_altitude_m_ = parse_number (fields[9]);
+
+          if (pending_fix_ && pending_time_ == gga_time_)
+            {
+              auto fix = std::move (*pending_fix_);
+              pending_fix_.reset ();
+              fix.altitude_m = gga_altitude_m_;
+              fix.hdop = hdop_;
+              return fix;
             }
         }
       catch (const std::invalid_argument &)
         {
-          // corrupted sentence, keep the previous hdop
+          // corrupted sentence, keep the previous values
         }
       return std::nullopt;
     }
@@ -109,10 +133,23 @@ gps::process_sentence (std::string_view sentence)
   try
     {
       const rmc sentence_ (sentence);
-      return gps_fix{ .position = utm (sentence_),
-                      .speed_mps = sentence_.speed_mps (),
-                      .course_deg = sentence_.course_deg (),
-                      .hdop = hdop_ };
+      gps_fix fix{ .position = utm (sentence_),
+                   .speed_mps = sentence_.speed_mps (),
+                   .course_deg = sentence_.course_deg (),
+                   .hdop = hdop_ };
+      const std::string time{ nmea_fields (sentence)[1] };
+      if (gga_time_ == time)
+        {
+          fix.altitude_m = gga_altitude_m_;
+          return fix;
+        }
+      if (gga_time_.empty ())
+        {
+          return fix; // no GGA stream to wait for
+        }
+      pending_fix_ = std::move (fix);
+      pending_time_ = time;
+      return std::nullopt;
     }
   catch (const no_fix_error &)
     {

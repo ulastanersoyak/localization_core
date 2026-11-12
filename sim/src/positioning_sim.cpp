@@ -1,10 +1,10 @@
 // Connects the Gazebo simulation to the position estimator:
 //
-//   /vehicle/imu     (gz.msgs.IMU, 100 Hz)   -> Xbus    -> add_imu_sample
-//   /vehicle/navsat  (gz.msgs.NavSat, 1 Hz)  -> gps_fix -> add_gps_fix
-//   /model/vehicle/pose (gz.msgs.Pose_V)     -> ground truth for scoring
+//   /drone/imu     (gz.msgs.IMU, 100 Hz)   -> Xbus    -> add_imu_sample
+//   /drone/navsat  (gz.msgs.NavSat, 1 Hz)  -> gps_fix -> add_gps_fix
+//   /model/drone/pose (gz.msgs.Pose_V)     -> ground truth for scoring
 //
-// After every IMU sample the filter predicts where the vehicle will be
+// After every IMU sample the filter predicts where the drone will be
 // --horizon seconds later. That prediction is drawn as a translucent ghost
 // and, once the simulation reaches the predicted time, compared against the
 // true pose. Accuracy is printed to the terminal and drawn above the ghost.
@@ -56,6 +56,8 @@ template <typename... Ts> struct overloaded : Ts...
 };
 
 constexpr double pi = std::numbers::pi;
+// Keep in sync with <gravity> in sim/worlds/positioning.sdf.
+constexpr double world_gravity = 9.8;
 
 struct options
 {
@@ -64,11 +66,23 @@ struct options
   double gps_drift_m{ 0.0 };
   double gps_drift_tau_s{ 60.0 };
   double speed_noise_mps{ 0.05 };
+  // Receivers are worse vertically: altitude noise and drift are this many
+  // times the horizontal ones.
+  double gps_vertical_factor{ 1.7 };
+  // IMU errors on top of the white noise in the world file. The bias is a
+  // constant per sensor axis drawn at startup, the orientation error a
+  // slowly wandering rotation (first order Gauss-Markov) in the local frame.
+  double accel_bias_mps2{ 0.02 };
+  double tilt_error_deg{ 0.2 };
+  double heading_error_deg{ 1.0 };
+  double orientation_error_tau_s{ 30.0 };
   double origin_lat{ 39.97656 };
   double origin_lon{ 32.73812 };
   double origin_alt{ 894.0 };
   double duration_s{ 0.0 }; // 0 = run until Ctrl-C
   double radius_m{ 12.0 };
+  double altitude_m{ 8.0 };
+  double altitude_swing_m{ 3.0 };
   unsigned seed{ 1 };
   bool manual{ false };
   bool follow{ true };
@@ -82,12 +96,19 @@ print_usage (const char *name)
       << "  --horizon S        predict S seconds ahead (default 1.0)\n"
       << "  --gps-noise M      white GPS position noise, metres (1.5)\n"
       << "  --gps-drift M      slowly wandering GPS error, metres (0)\n"
+      << "  --gps-vfactor F    altitude noise and drift relative to the "
+         "horizontal (1.7)\n"
+      << "  --accel-bias A     accelerometer bias per axis, m/s^2 (0.02)\n"
+      << "  --tilt-error D     roll/pitch error, degrees (0.2)\n"
+      << "  --heading-error D  heading error, degrees (1.0)\n"
       << "  --duration S       stop after S simulated seconds (run forever)\n"
       << "  --radius M         figure-eight loop radius (12)\n"
+      << "  --altitude M       cruise height above the ground (8)\n"
+      << "  --altitude-swing M climb and descend this far around it (3)\n"
       << "  --seed N           noise seed (1)\n"
-      << "  --manual           do not drive, use the GUI teleop instead\n"
+      << "  --manual           do not fly, command /drone/cmd_vel by hand\n"
       << "  --no-follow        do not make the GUI camera follow the "
-         "vehicle\n";
+         "drone\n";
 }
 
 std::optional<options>
@@ -111,10 +132,22 @@ parse_options (int argc, char *argv[])
         opt.gps_noise_m = value ();
       else if (arg == "--gps-drift")
         opt.gps_drift_m = value ();
+      else if (arg == "--gps-vfactor")
+        opt.gps_vertical_factor = value ();
+      else if (arg == "--accel-bias")
+        opt.accel_bias_mps2 = value ();
+      else if (arg == "--tilt-error")
+        opt.tilt_error_deg = value ();
+      else if (arg == "--heading-error")
+        opt.heading_error_deg = value ();
       else if (arg == "--duration")
         opt.duration_s = value ();
       else if (arg == "--radius")
         opt.radius_m = value ();
+      else if (arg == "--altitude")
+        opt.altitude_m = value ();
+      else if (arg == "--altitude-swing")
+        opt.altitude_swing_m = value ();
       else if (arg == "--seed")
         opt.seed = static_cast<unsigned> (value ());
       else if (arg == "--manual")
@@ -159,16 +192,57 @@ wrap_angle (double a)
   return a;
 }
 
-struct xy
+struct point
 {
   double x{ 0 };
   double y{ 0 };
+  double z{ 0 };
 };
 
 double
-distance (const xy &a, const xy &b)
+distance (const point &a, const point &b)
 {
-  return std::hypot (a.x - b.x, a.y - b.y);
+  return std::hypot (a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+// A 3D error together with its vertical part.
+struct scored_error
+{
+  error_stats total{};
+  error_stats vertical{};
+
+  void
+  add (const point &estimate, const point &truth)
+  {
+    total.add (distance (estimate, truth));
+    vertical.add (std::abs (estimate.z - truth.z));
+  }
+};
+
+using quaternion = std::array<double, 4>; // w, x, y, z
+
+quaternion
+multiply (const quaternion &a, const quaternion &b)
+{
+  const auto &[w1, x1, y1, z1] = a;
+  const auto &[w2, x2, y2, z2] = b;
+  return { (w1 * w2) - (x1 * x2) - (y1 * y2) - (z1 * z2),
+           (w1 * x2) + (x1 * w2) + (y1 * z2) - (z1 * y2),
+           (w1 * y2) - (x1 * z2) + (y1 * w2) + (z1 * x2),
+           (w1 * z2) + (x1 * y2) - (y1 * x2) + (z1 * w2) };
+}
+
+// Rotation by the angle |r| about the axis r.
+quaternion
+from_rotation_vector (const std::array<double, 3> &r)
+{
+  const double angle = std::hypot (r[0], r[1], r[2]);
+  if (angle < 1e-12)
+    {
+      return { 1, 0, 0, 0 };
+    }
+  const double s = std::sin (angle / 2) / angle;
+  return { std::cos (angle / 2), r[0] * s, r[1] * s, r[2] * s };
 }
 
 // ---- events from the gz-transport callback threads ------------------------
@@ -187,12 +261,13 @@ struct navsat_event
   double alt;
   double v_east;
   double v_north;
+  double v_up;
 };
 
 struct truth_event
 {
   double t;
-  xy position;
+  point position;
   double yaw;
 };
 
@@ -205,8 +280,8 @@ class positioning_sim
   struct prediction
   {
     double target_t;
-    xy filter;
-    std::optional<xy> baseline; // raw GPS extrapolation, for comparison
+    point filter;
+    std::optional<point> baseline; // raw GPS extrapolation, for comparison
   };
 
   options opt_;
@@ -216,12 +291,21 @@ class positioning_sim
   gz::transport::Node::Publisher overlay_pub_{};
   queue<sim_event> events_{};
   local_frame frame_;
-  position_estimator estimator_{};
+  position_estimator estimator_;
 
   std::mt19937 rng_;
   std::normal_distribution<double> unit_noise_{ 0.0, 1.0 };
-  xy gps_drift_{};
+  point gps_drift_{};
+  double gps_drift_up_{ 0 };
   double last_gps_t_{ -1 };
+
+  // Separate generator for the altitude and IMU errors, so that turning
+  // them off reproduces the horizontal GPS noise of earlier versions.
+  std::mt19937 error_rng_;
+  std::normal_distribution<double> error_noise_{ 0.0, 1.0 };
+  std::array<double, 3> accel_bias_{};
+  std::array<double, 3> orientation_error_{}; // rotation vector, ENU [rad]
+  double last_imu_t_{ -1 };
 
   std::deque<truth_event> truth_{};
   std::deque<prediction> pending_{};
@@ -230,17 +314,17 @@ class positioning_sim
   struct instant_check
   {
     double t;
-    xy position;
-    error_stats *stats;
+    point position;
+    scored_error *stats;
   };
   std::deque<instant_check> pending_checks_{};
   std::optional<navsat_event> last_raw_fix_{};
-  std::optional<xy> last_raw_fix_xy_{};
+  std::optional<point> last_raw_fix_local_{};
 
-  error_stats filter_error_{};
-  error_stats baseline_error_{};
-  error_stats now_error_{};
-  error_stats raw_gps_error_{};
+  scored_error filter_error_{};
+  scored_error baseline_error_{};
+  scored_error now_error_{};
+  scored_error raw_gps_error_{};
   std::size_t gps_fixes_{ 0 };
   std::size_t gps_rejected_{ 0 };
 
@@ -251,35 +335,50 @@ class positioning_sim
   double last_cmd_t_{ -1 };
   double last_follow_t_{ -100 };
 
-  // figure-eight driving
+  // figure-eight flying
   double turn_direction_{ 1 };
   double turned_{ 0 };
+  bool airborne_{ false };
   std::optional<double> last_yaw_{};
 
   std::optional<prediction> last_evaluated_{};
-  std::optional<xy> last_evaluated_truth_{};
+  std::optional<point> last_evaluated_truth_{};
 
 public:
   explicit positioning_sim (const options &opt)
       : opt_ (opt), frame_ (opt.origin_lat, opt.origin_lon, opt.origin_alt),
-        rng_ (opt.seed)
+        estimator_ (make_estimator_config (opt)), rng_ (opt.seed),
+        error_rng_ (opt.seed + 1)
   {
+    for (auto &b : accel_bias_)
+      {
+        b = opt_.accel_bias_mps2 * error_noise_ (error_rng_);
+      }
+  }
+
+  static estimator_config
+  make_estimator_config (const options &opt)
+  {
+    estimator_config config{};
+    config.gravity_mps2 = world_gravity;
+    config.gps_vertical_factor = opt.gps_vertical_factor;
+    return config;
   }
 
   bool
   start ()
   {
-    cmd_pub_ = node_.Advertise<gz::msgs::Twist> ("/model/vehicle/cmd_vel");
+    cmd_pub_ = node_.Advertise<gz::msgs::Twist> ("/drone/cmd_vel");
     accuracy_pub_
         = node_.Advertise<gz::msgs::StringMsg> ("/positioning/accuracy");
     overlay_pub_
         = node_.Advertise<gz::msgs::StringMsg> ("/positioning/overlay");
 
     const bool ok
-        = node_.Subscribe ("/vehicle/imu", &positioning_sim::on_imu, this)
-          && node_.Subscribe ("/vehicle/navsat", &positioning_sim::on_navsat,
+        = node_.Subscribe ("/drone/imu", &positioning_sim::on_imu, this)
+          && node_.Subscribe ("/drone/navsat", &positioning_sim::on_navsat,
                               this)
-          && node_.Subscribe ("/model/vehicle/pose", &positioning_sim::on_pose,
+          && node_.Subscribe ("/model/drone/pose", &positioning_sim::on_pose,
                               this);
     if (!ok)
       {
@@ -329,7 +428,7 @@ public:
             break;
           }
       }
-    stop_vehicle ();
+    hover ();
     print_summary ();
   }
 
@@ -364,7 +463,7 @@ private:
     events_.push (navsat_event{ stamp_seconds (msg.header ()),
                                 msg.latitude_deg (), msg.longitude_deg (),
                                 msg.altitude (), msg.velocity_east (),
-                                msg.velocity_north () });
+                                msg.velocity_north (), msg.velocity_up () });
   }
 
   void
@@ -373,7 +472,7 @@ private:
     for (const auto &pose : msg.pose ())
       {
         const auto &name = pose.name ();
-        if (name != "vehicle")
+        if (name != "drone")
           {
             continue;
           }
@@ -383,27 +482,62 @@ private:
                           1 - 2 * (q.y () * q.y () + q.z () * q.z ()));
         const double t = pose.has_header () ? stamp_seconds (pose.header ())
                                             : stamp_seconds (msg.header ());
-        events_.push (truth_event{
-            t, { pose.position ().x (), pose.position ().y () }, yaw });
+        const auto &p = pose.position ();
+        events_.push (truth_event{ t, { p.x (), p.y (), p.z () }, yaw });
         return;
       }
   }
 
   // -- main thread -----------------------------------------------------
 
-  [[nodiscard]] xy
-  to_local (const utm &position) const
+  [[nodiscard]] point
+  to_local (const utm &position, double altitude) const
   {
     const auto [lat, lon] = position.to_latlon ();
-    const auto enu = frame_.to_enu (lat, lon, opt_.origin_alt);
-    return { enu[0], enu[1] };
+    const auto enu = frame_.to_enu (lat, lon, altitude);
+    return { enu[0], enu[1], enu[2] };
+  }
+
+  // The IMU model: Gazebo gives white acceleration noise and the exact
+  // orientation, a real AHRS also has bias and orientation error. A tilt
+  // error leaks gravity into the horizontal acceleration.
+  [[nodiscard]] Xbus
+  with_imu_errors (const imu_event &e)
+  {
+    const double deg = pi / 180;
+    const std::array<double, 3> sigma{ opt_.tilt_error_deg * deg,
+                                       opt_.tilt_error_deg * deg,
+                                       opt_.heading_error_deg * deg };
+    const double dt = last_imu_t_ < 0 ? 0 : e.t - last_imu_t_;
+    // The first sample starts from the steady state distribution.
+    const double phi
+        = last_imu_t_ < 0 ? 0 : std::exp (-dt / opt_.orientation_error_tau_s);
+    last_imu_t_ = e.t;
+    for (std::size_t i = 0; i < 3; ++i)
+      {
+        orientation_error_[i] = (phi * orientation_error_[i])
+                                + (sigma[i] * std::sqrt (1 - phi * phi)
+                                   * error_noise_ (error_rng_));
+      }
+
+    Xbus sample = e.sample;
+    for (std::size_t i = 0; i < 3; ++i)
+      {
+        sample.acc[i] += accel_bias_[i];
+      }
+    // The quaternion maps sensor to local, so the local frame error goes on
+    // the left.
+    sample.quat
+        = multiply (from_rotation_vector (orientation_error_), sample.quat);
+    sample.convertQuatToEuler ();
+    return sample;
   }
 
   void
   handle (const imu_event &e)
   {
     sim_t_ = std::max (sim_t_, e.t);
-    if (!estimator_.add_imu_sample (e.sample))
+    if (!estimator_.add_imu_sample (with_imu_errors (e)))
       {
         return;
       }
@@ -414,24 +548,26 @@ private:
       {
         return;
       }
-    const xy now_xy = to_local (now->position);
-    const xy ahead_xy = to_local (ahead->position);
+    const point now_local = to_local (now->position, now->altitude_m);
+    const point ahead_local = to_local (ahead->position, ahead->altitude_m);
 
-    pending_checks_.push_back ({ e.t, now_xy, &now_error_ });
+    pending_checks_.push_back ({ e.t, now_local, &now_error_ });
 
-    prediction p{ e.t + opt_.horizon_s, ahead_xy, std::nullopt };
-    if (last_raw_fix_ && last_raw_fix_xy_)
+    prediction p{ e.t + opt_.horizon_s, ahead_local, std::nullopt };
+    if (last_raw_fix_ && last_raw_fix_local_)
       {
         const double dt = p.target_t - last_raw_fix_->t;
-        p.baseline = xy{ last_raw_fix_xy_->x + last_raw_fix_->v_east * dt,
-                         last_raw_fix_xy_->y + last_raw_fix_->v_north * dt };
+        p.baseline
+            = point{ last_raw_fix_local_->x + last_raw_fix_->v_east * dt,
+                     last_raw_fix_local_->y + last_raw_fix_->v_north * dt,
+                     last_raw_fix_local_->z + last_raw_fix_->v_up * dt };
       }
     pending_.push_back (p);
 
     if (e.t - last_ghost_t_ >= 1.0 / 30.0)
       {
         last_ghost_t_ = e.t;
-        draw_ghost (now_xy, ahead_xy);
+        draw_ghost (now_local, ahead_local);
       }
   }
 
@@ -450,7 +586,13 @@ private:
         const double s = opt_.gps_drift_m * std::sqrt (1 - phi * phi);
         gps_drift_.x = phi * gps_drift_.x + s * unit_noise_ (rng_);
         gps_drift_.y = phi * gps_drift_.y + s * unit_noise_ (rng_);
+        gps_drift_up_
+            = phi * gps_drift_up_
+              + opt_.gps_vertical_factor * s * error_noise_ (error_rng_);
       }
+    const double noise_up = gps_drift_up_
+                            + opt_.gps_vertical_factor * opt_.gps_noise_m
+                                  * error_noise_ (error_rng_);
     const double noise_e
         = gps_drift_.x + opt_.gps_noise_m * unit_noise_ (rng_);
     const double noise_n
@@ -458,6 +600,10 @@ private:
     const double v_east = e.v_east + opt_.speed_noise_mps * unit_noise_ (rng_);
     const double v_north
         = e.v_north + opt_.speed_noise_mps * unit_noise_ (rng_);
+    // Only the raw baseline gets a climb rate: NMEA has no vertical velocity,
+    // so the filter never sees this.
+    const double v_up
+        = e.v_up + opt_.speed_noise_mps * error_noise_ (error_rng_);
     const double speed = std::hypot (v_east, v_north);
 
     gps_fix fix{};
@@ -472,6 +618,7 @@ private:
       }
     fix.position.update_easting (noise_e);
     fix.position.update_northing (noise_n);
+    fix.altitude_m = e.alt + noise_up;
     fix.speed_mps = speed;
     if (speed >= 0.3) // receivers leave the course empty when slow
       {
@@ -480,9 +627,10 @@ private:
       }
     fix.hdop = std::max (opt_.gps_noise_m, 0.5) / 2.0; // sigma = hdop * 2 m
 
-    const xy raw = to_local (fix.position);
-    last_raw_fix_ = navsat_event{ e.t, e.lat, e.lon, e.alt, v_east, v_north };
-    last_raw_fix_xy_ = raw;
+    const point raw = to_local (fix.position, *fix.altitude_m);
+    last_raw_fix_ = navsat_event{ e.t,    e.lat,   e.lon, *fix.altitude_m,
+                                  v_east, v_north, v_up };
+    last_raw_fix_local_ = raw;
     pending_checks_.push_back ({ e.t, raw, &raw_gps_error_ });
 
     ++gps_fixes_;
@@ -506,12 +654,12 @@ private:
       }
 
     evaluate_predictions ();
-    drive (e);
-    follow_vehicle ();
+    fly (e);
+    follow_drone ();
   }
 
   // Linear interpolation of the true position at time t.
-  [[nodiscard]] std::optional<xy>
+  [[nodiscard]] std::optional<point>
   truth_at (double t) const
   {
     if (truth_.size () < 2 || t < truth_.front ().t || t > truth_.back ().t)
@@ -528,8 +676,9 @@ private:
         const auto &a = truth_[i - 1];
         const double span = b.t - a.t;
         const double w = span > 0 ? (t - a.t) / span : 0;
-        return xy{ a.position.x + w * (b.position.x - a.position.x),
-                   a.position.y + w * (b.position.y - a.position.y) };
+        return point{ a.position.x + w * (b.position.x - a.position.x),
+                      a.position.y + w * (b.position.y - a.position.y),
+                      a.position.z + w * (b.position.z - a.position.z) };
       }
     return std::nullopt;
   }
@@ -544,7 +693,7 @@ private:
         pending_checks_.pop_front ();
         if (const auto truth = truth_at (check.t))
           {
-            check.stats->add (distance (check.position, *truth));
+            check.stats->add (check.position, *truth);
           }
       }
 
@@ -558,22 +707,25 @@ private:
           {
             continue; // too old, history already dropped
           }
-        filter_error_.add (distance (p.filter, *truth));
+        filter_error_.add (p.filter, *truth);
         if (p.baseline)
           {
-            baseline_error_.add (distance (*p.baseline, *truth));
+            baseline_error_.add (*p.baseline, *truth);
           }
         last_evaluated_ = p;
         last_evaluated_truth_ = truth;
       }
   }
 
-  // Figure eight: full circles alternating left and right, with the speed
-  // varying between 1 and 4 m/s so the filter sees acceleration too.
+  // Takes off, then flies a figure eight: full circles alternating left and
+  // right, with the speed varying between 1 and 4 m/s and the height swinging
+  // around the cruise altitude, so the filter sees acceleration on all axes.
+  // The commands are the autopilot's job and use the true pose; the filter
+  // only ever gets the IMU and the noisy GPS.
   void
-  drive (const truth_event &e)
+  fly (const truth_event &e)
   {
-    if (last_yaw_)
+    if (last_yaw_ && airborne_)
       {
         turned_ += wrap_angle (e.yaw - *last_yaw_);
       }
@@ -586,23 +738,43 @@ private:
     last_cmd_t_ = e.t;
 
     gz::msgs::Twist cmd;
-    if (e.t > 3.0) // stand still for the first fix
+    if (e.t > 3.0) // sit on the ground for the first fix
       {
-        const double speed = 2.5 + 1.5 * std::sin (2 * pi * e.t / 23.0);
-        if (std::abs (turned_) >= 2 * pi)
+        constexpr double swing_period_s = 17.0;
+        constexpr double max_climb_mps = 2.0;
+        constexpr double climb_gain = 1.0;
+
+        const double swing_rate = 2 * pi / swing_period_s;
+        const double target
+            = opt_.altitude_m
+              + opt_.altitude_swing_m * std::sin (swing_rate * e.t);
+        const double feed_forward = airborne_
+                                        ? opt_.altitude_swing_m * swing_rate
+                                              * std::cos (swing_rate * e.t)
+                                        : 0.0;
+        cmd.mutable_linear ()->set_z (
+            std::clamp (feed_forward + climb_gain * (target - e.position.z),
+                        -max_climb_mps, max_climb_mps));
+
+        airborne_ = airborne_ || e.position.z > opt_.altitude_m / 2;
+        if (airborne_)
           {
-            turn_direction_ = -turn_direction_;
-            turned_ = 0;
+            const double speed = 2.5 + 1.5 * std::sin (2 * pi * e.t / 23.0);
+            if (std::abs (turned_) >= 2 * pi)
+              {
+                turn_direction_ = -turn_direction_;
+                turned_ = 0;
+              }
+            cmd.mutable_linear ()->set_x (speed);
+            cmd.mutable_angular ()->set_z (turn_direction_ * speed
+                                           / opt_.radius_m);
           }
-        cmd.mutable_linear ()->set_x (speed);
-        cmd.mutable_angular ()->set_z (turn_direction_ * speed
-                                       / opt_.radius_m);
       }
     cmd_pub_.Publish (cmd);
   }
 
   void
-  stop_vehicle ()
+  hover ()
   {
     if (!opt_.manual)
       {
@@ -613,7 +785,7 @@ private:
   // The GUI usually starts after us and may drop an early request, so keep
   // asking during the first half minute.
   void
-  follow_vehicle ()
+  follow_drone ()
   {
     if (!opt_.follow || sim_t_ > 30 || sim_t_ - last_follow_t_ < 3)
       {
@@ -622,11 +794,11 @@ private:
     last_follow_t_ = sim_t_;
 
     gz::msgs::Vector3d offset;
-    offset.set_x (-9);
-    offset.set_y (-4);
-    offset.set_z (6);
+    offset.set_x (-6);
+    offset.set_y (-3);
+    offset.set_z (3.5);
     gz::msgs::StringMsg target;
-    target.set_data ("vehicle");
+    target.set_data ("drone");
     std::function<void (const gz::msgs::Boolean &, const bool)> ignore
         = [] (const gz::msgs::Boolean &, const bool) {};
     node_.Request ("/gui/follow/offset", offset, ignore);
@@ -686,20 +858,20 @@ private:
   }
 
   void
-  draw_ghost (const xy &now, const xy &ahead)
+  draw_ghost (const point &now, const point &ahead)
   {
-    // Ghost: same size as the chassis, coloured by the latest error.
-    const double err = filter_error_.last ();
-    const double badness = std::clamp ((err - 0.25) / 1.5, 0.0, 1.0);
-    const double yaw = distance (now, ahead) > 0.05
+    // Ghost: same size as the airframe, coloured by the latest error.
+    const double err = filter_error_.total.last ();
+    const double badness = std::clamp ((err - 0.5) / 2.0, 0.0, 1.0);
+    const double yaw = std::hypot (ahead.x - now.x, ahead.y - now.y) > 0.05
                            ? std::atan2 (ahead.y - now.y, ahead.x - now.x)
                            : last_yaw_.value_or (0);
 
     auto ghost = marker ("ghost", 1, gz::msgs::Marker::BOX);
-    set_pose (ghost, ahead.x, ahead.y, 0.4, yaw);
-    ghost.mutable_scale ()->set_x (1.6);
-    ghost.mutable_scale ()->set_y (1.0);
-    ghost.mutable_scale ()->set_z (0.4);
+    set_pose (ghost, ahead.x, ahead.y, ahead.z, yaw);
+    ghost.mutable_scale ()->set_x (0.8);
+    ghost.mutable_scale ()->set_y (0.8);
+    ghost.mutable_scale ()->set_z (0.15);
     set_color (ghost, 0.2 + 0.8 * badness, 1.0 - 0.7 * badness, 0.2, 0.55);
     auto *glow = ghost.mutable_material ()->mutable_emissive ();
     glow->set_r (static_cast<float> (0.1 + 0.6 * badness));
@@ -709,8 +881,8 @@ private:
     send (ghost);
 
     auto link = marker ("ghost", 2, gz::msgs::Marker::LINE_STRIP);
-    add_point (link, now.x, now.y, 0.9);
-    add_point (link, ahead.x, ahead.y, 0.9);
+    add_point (link, now.x, now.y, now.z);
+    add_point (link, ahead.x, ahead.y, ahead.z);
     set_color (link, 1, 1, 1, 0.8);
     send (link);
 
@@ -719,7 +891,7 @@ private:
       {
         auto past = marker ("check", 1, gz::msgs::Marker::SPHERE);
         set_pose (past, last_evaluated_->filter.x, last_evaluated_->filter.y,
-                  0.9, 0);
+                  last_evaluated_->filter.z, 0);
         past.mutable_scale ()->set_x (0.25);
         past.mutable_scale ()->set_y (0.25);
         past.mutable_scale ()->set_z (0.25);
@@ -728,20 +900,20 @@ private:
 
         auto error_line = marker ("check", 2, gz::msgs::Marker::LINE_LIST);
         add_point (error_line, last_evaluated_->filter.x,
-                   last_evaluated_->filter.y, 0.9);
+                   last_evaluated_->filter.y, last_evaluated_->filter.z);
         add_point (error_line, last_evaluated_truth_->x,
-                   last_evaluated_truth_->y, 0.9);
+                   last_evaluated_truth_->y, last_evaluated_truth_->z);
         set_color (error_line, 1, 0.1, 0.1, 1);
         send (error_line);
       }
   }
 
   void
-  draw_gps_fix (const xy &raw)
+  draw_gps_fix (const point &raw)
   {
     // The last 20 raw GPS fixes as small dots.
     auto dot = marker ("gps", gps_fixes_ % 20, gz::msgs::Marker::SPHERE);
-    set_pose (dot, raw.x, raw.y, 0.1, 0);
+    set_pose (dot, raw.x, raw.y, std::max (raw.z, 0.1), 0);
     dot.mutable_scale ()->set_x (0.3);
     dot.mutable_scale ()->set_y (0.3);
     dot.mutable_scale ()->set_z (0.3);
@@ -756,13 +928,15 @@ private:
   {
     std::ostringstream line;
     line << std::fixed << std::setprecision (2) << "t=" << std::setw (6)
-         << sim_t_ << "s | ghost +" << opt_.horizon_s << "s err: last "
-         << filter_error_.last () << " m, mean " << filter_error_.mean ()
-         << ", rms " << filter_error_.rms () << ", p95 "
-         << filter_error_.percentile (0.95) << ", max " << filter_error_.max ()
-         << " | raw GPS extrapolated: mean " << baseline_error_.mean ()
-         << " m | fixes " << gps_fixes_ << " (rejected " << gps_rejected_
-         << ")";
+         << sim_t_ << "s | ghost +" << opt_.horizon_s << "s 3D err: last "
+         << filter_error_.total.last () << " m, mean "
+         << filter_error_.total.mean () << ", rms "
+         << filter_error_.total.rms () << ", p95 "
+         << filter_error_.total.percentile (0.95) << ", max "
+         << filter_error_.total.max () << " | vertical mean "
+         << filter_error_.vertical.mean () << " | raw GPS extrapolated: mean "
+         << baseline_error_.total.mean () << " m | fixes " << gps_fixes_
+         << " (rejected " << gps_rejected_ << ")";
     std::cout << line.str () << std::endl;
 
     gz::msgs::StringMsg msg;
@@ -774,21 +948,23 @@ private:
   void
   publish_overlay ()
   {
-    const double err = filter_error_.last ();
+    const auto &ghost = filter_error_.total;
+    const double err = ghost.last ();
     const char *colour
-        = err < 0.5 ? "#7cfc7c" : (err < 1.5 ? "#ffd966" : "#ff6b6b");
+        = err < 1.0 ? "#7cfc7c" : (err < 2.5 ? "#ffd966" : "#ff6b6b");
     std::ostringstream o;
     o << std::fixed << std::setprecision (2)
       << "<b>Ghost = Kalman prediction +" << opt_.horizon_s << " s</b><br>"
-      << "error now: <font color=\"" << colour << "\"><b>" << err
+      << "3D error now: <font color=\"" << colour << "\"><b>" << err
       << " m</b></font><br>"
-      << "mean " << filter_error_.mean () << " m | rms "
-      << filter_error_.rms () << " m | p95 " << filter_error_.percentile (0.95)
-      << " m | max " << filter_error_.max () << " m<br>"
+      << "mean " << ghost.mean () << " m | rms " << ghost.rms () << " m | p95 "
+      << ghost.percentile (0.95) << " m | max " << ghost.max () << " m<br>"
       << "<font color=\"#aaaaaa\">raw GPS extrapolated +" << opt_.horizon_s
-      << " s: mean " << baseline_error_.mean () << " m<br>"
-      << "current position: Kalman " << now_error_.mean () << " m vs raw GPS "
-      << raw_gps_error_.mean () << " m<br>"
+      << " s: mean " << baseline_error_.total.mean () << " m<br>"
+      << "current position: Kalman " << now_error_.total.mean ()
+      << " m vs raw GPS " << raw_gps_error_.total.mean () << " m<br>"
+      << "altitude: Kalman " << now_error_.vertical.mean () << " m vs raw GPS "
+      << raw_gps_error_.vertical.mean () << " m<br>"
       << "GPS fixes " << gps_fixes_ << " (rejected " << gps_rejected_
       << ") | sim time " << std::setprecision (1) << sim_t_ << " s</font>";
 
@@ -811,7 +987,7 @@ private:
       };
 
     std::cout << "\n=== accuracy over " << std::fixed << std::setprecision (1)
-              << sim_t_ << " s of simulation (metres) ===\n"
+              << sim_t_ << " s of simulation (3D error, metres) ===\n"
               << "  " << std::left << std::setw (38) << "" << std::right
               << std::setw (8) << "mean" << std::setw (8) << "rms"
               << std::setw (8) << "p50" << std::setw (8) << "p95"
@@ -823,10 +999,14 @@ private:
     std::ostringstream baseline;
     baseline << "baseline: raw GPS extrapolated +" << std::setprecision (2)
              << opt_.horizon_s << " s";
-    row (ghost.str ().c_str (), filter_error_);
-    row (baseline.str ().c_str (), baseline_error_);
-    row ("Kalman estimate of the current pos.", now_error_);
-    row ("raw GPS fix", raw_gps_error_);
+    row (ghost.str ().c_str (), filter_error_.total);
+    row (baseline.str ().c_str (), baseline_error_.total);
+    row ("Kalman estimate of the current pos.", now_error_.total);
+    row ("raw GPS fix", raw_gps_error_.total);
+    row ("vertical only: ghost", filter_error_.vertical);
+    row ("vertical only: baseline", baseline_error_.vertical);
+    row ("vertical only: Kalman estimate", now_error_.vertical);
+    row ("vertical only: raw GPS fix", raw_gps_error_.vertical);
     std::cout << "  gps fixes: " << gps_fixes_
               << ", rejected by the filter: " << gps_rejected_ << "\n";
   }

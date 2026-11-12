@@ -3,6 +3,11 @@ target_link_libraries(positioning_sim kalman utm xbus rmc time_and_location
                       gz-transport13::core gz-msgs10::core)
 target_include_directories(positioning_sim PRIVATE ${CMAKE_SOURCE_DIR}/includes)
 
+add_executable(pole_tracking_sim src/pole_tracking_sim.cpp)
+target_link_libraries(pole_tracking_sim xbus gz-transport13::core
+                      gz-msgs10::core)
+target_include_directories(pole_tracking_sim PRIVATE ${CMAKE_SOURCE_DIR}/includes)
+
 # GUI overlay showing the prediction accuracy on the Gazebo screen.
 find_package(gz-gui8 QUIET)
 find_package(Qt5 COMPONENTS Core Quick QUIET)

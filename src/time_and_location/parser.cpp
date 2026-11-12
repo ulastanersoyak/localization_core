@@ -75,9 +75,11 @@ parse_date (std::string_view token)
     {
       throw std::invalid_argument ("malformed date: " + std::string (token));
     }
-  const date dt{ parse_two_digits (token, 0, 31),
-                 parse_two_digits (token, 2, 12),
-                 parse_two_digits (token, 4, 99) };
+  const date dt{
+    parse_two_digits (token, 0, 31),
+    parse_two_digits (token, 2, 12),
+    parse_two_digits (token, 4, 99),
+  };
   if (dt.dd == 0 || dt.mm == 0)
     {
       throw std::invalid_argument ("malformed date: " + std::string (token));
@@ -124,7 +126,7 @@ parse_coordinate (std::string_view token)
   const auto dot = numeric_part.find ('.');
   const auto minute_start
       = (dot == std::string_view::npos ? numeric_part.size () : dot) - 2;
-  if (dot != std::string_view::npos && dot < 3)
+  if (dot < 3)
     {
       throw std::invalid_argument ("malformed coordinate: "
                                    + std::string (token));
@@ -143,7 +145,9 @@ parse_coordinate (std::string_view token)
                                    + std::string (token));
     }
 
-  return { .degree = static_cast<std::uint8_t> (degree),
-           .minute = minute,
-           .indicator = indicator };
+  return {
+    .degree = static_cast<std::uint8_t> (degree),
+    .minute = minute,
+    .indicator = indicator,
+  };
 }

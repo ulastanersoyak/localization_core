@@ -153,29 +153,30 @@ parse_item (Xbus &xbus, std::uint16_t dataId, const std::uint8_t *p,
     }
 }
 
-// Maps a horizontal vector from the given local frame to {east, north}.
-std::array<double, 2>
-to_east_north (double x, double y, xbus_frame frame)
+// Maps a vector from the given local frame to {east, north, up}.
+std::array<double, 3>
+to_east_north_up (double x, double y, double z, xbus_frame frame)
 {
   switch (frame)
     {
     case xbus_frame::NED:
-      return { y, x };
+      return { y, x, -z };
     case xbus_frame::NWU:
-      return { -y, x };
+      return { -y, x, z };
     case xbus_frame::ENU:
     default:
-      return { x, y };
+      return { x, y, z };
     }
 }
 } // namespace
 
-std::optional<std::array<double, 2>>
-Xbus::horizontalAccelerationEN () const
+std::optional<std::array<double, 3>>
+Xbus::accelerationENU (double gravity) const
 {
   if (freeAccAvailable)
     {
-      return to_east_north (freeAcc[0], freeAcc[1], freeAccFrame);
+      return to_east_north_up (freeAcc[0], freeAcc[1], freeAcc[2],
+                               freeAccFrame);
     }
   if (accAvailable && quaternionAvailable)
     {
@@ -187,9 +188,24 @@ Xbus::horizontalAccelerationEN () const
       const double tz = 2 * (x * vy - y * vx);
       const double rx = vx + w * tx + (y * tz - z * ty);
       const double ry = vy + w * ty + (z * tx - x * tz);
-      return to_east_north (rx, ry, quatFrame);
+      const double rz = vz + w * tz + (x * ty - y * tx);
+      // At rest the accelerometer measures gravity's reaction, pointing up.
+      auto enu = to_east_north_up (rx, ry, rz, quatFrame);
+      enu[2] -= gravity;
+      return enu;
     }
   return std::nullopt;
+}
+
+std::optional<std::array<double, 2>>
+Xbus::horizontalAccelerationEN () const
+{
+  const auto enu = accelerationENU ();
+  if (!enu)
+    {
+      return std::nullopt;
+    }
+  return std::array<double, 2>{ (*enu)[0], (*enu)[1] };
 }
 
 bool

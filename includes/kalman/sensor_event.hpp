@@ -10,6 +10,7 @@
 struct gps_fix
 {
   utm position{};
+  std::optional<double> altitude_m{}; // from the GGA of the same epoch
   double speed_mps{ 0 };
   std::optional<double> course_deg{}; // true course, clockwise from north
   std::optional<double> hdop{};       // from the latest GGA sentence

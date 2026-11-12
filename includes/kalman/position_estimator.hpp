@@ -14,6 +14,8 @@ struct estimator_config
   double gps_uere_m{ 2.0 };
   double gps_default_sigma_m{ 4.0 }; // when no HDOP is known
   double gps_min_sigma_m{ 1.0 };
+  // Receivers are worse vertically: altitude sigma = this * horizontal sigma.
+  double gps_vertical_factor{ 1.7 };
   double gps_velocity_sigma_mps{ 0.3 };
   // Below this speed the receiver's course is unreliable, the fix is used as
   // a zero velocity measurement instead.
@@ -27,9 +29,11 @@ struct estimator_config
   double imu_accel_sigma_mps2{ 0.3 };
   double maneuver_accel_sigma_mps2{ 2.0 };
 
-  // Chi-square gate for 2 dof, 99.9 %. After this many consecutive rejected
+  // Chi-square gates at 99.9 % for 2 dof (horizontal position, velocity) and
+  // 3 dof (position with altitude). After this many consecutive rejected
   // fixes the filter assumes it diverged and restarts from the GPS.
   double gate_nis{ 13.82 };
+  double gate_nis_3d{ 16.27 };
   std::size_t max_rejected_fixes{ 5 };
 
   // predict_ahead() extrapolates with the recent IMU acceleration, low pass
@@ -38,23 +42,31 @@ struct estimator_config
 
   double imu_nominal_dt_s{ 0.01 }; // 100 Hz
   double imu_max_dt_s{ 0.5 };
+  // Subtracted from the accelerometer when there is no free acceleration
+  // output. An error here is a constant vertical acceleration bias.
+  double gravity_mps2{ Xbus::standardGravity };
 };
 
 struct position_estimate
 {
-  utm position{};    // time is the time of the latest GPS fix
-  double age_s{ 0 }; // seconds of prediction since that fix
+  utm position{};         // time is the time of the latest GPS fix
+  double altitude_m{ 0 }; // same reference as gps_fix::altitude_m
+  double age_s{ 0 };      // seconds of prediction since that fix
   double velocity_east_mps{ 0 };
   double velocity_north_mps{ 0 };
+  double velocity_up_mps{ 0 };
   double sigma_east_m{ 0 };
   double sigma_north_m{ 0 };
+  double sigma_up_m{ 0 }; // very large until a fix with altitude arrives
   double sigma_velocity_east_mps{ 0 };
   double sigma_velocity_north_mps{ 0 };
+  double sigma_velocity_up_mps{ 0 };
 };
 
-// Fuses GPS fixes (position, speed, course) with IMU acceleration in a
-// constant velocity Kalman filter. State: [east, north, v_east, v_north] in
-// the UTM grid of the first fix.
+// Fuses GPS fixes (position, altitude, speed, course) with IMU acceleration in
+// a constant velocity Kalman filter. State: [east, north, up, v_east, v_north,
+// v_up], horizontal in the UTM grid of the first fix. NMEA has no vertical
+// velocity, so v_up comes from the accelerometer and the altitude fixes.
 class position_estimator
 {
 public:
@@ -87,13 +99,13 @@ public:
 
 private:
   void initialize (const gps_fix &fix);
-  void propagate (kalman_filter<4> &filter, double dt,
-                  const std::array<double, 2> *accel_grid) const;
-  [[nodiscard]] position_estimate to_estimate (const kalman_filter<4> &filter,
+  void propagate (kalman_filter<6> &filter, double dt,
+                  const std::array<double, 3> *accel_grid) const;
+  [[nodiscard]] position_estimate to_estimate (const kalman_filter<6> &filter,
                                                double age_s) const;
 
   estimator_config config_;
-  kalman_filter<4> filter_{};
+  kalman_filter<6> filter_{};
   bool initialized_{ false };
   std::uint32_t zone_number_{ 0 };
   char zone_char_{ '_' };
@@ -103,7 +115,7 @@ private:
   std::size_t imu_samples_since_fix_{ 0 };
   std::size_t rejected_fixes_{ 0 };
   std::optional<std::uint32_t> last_imu_tick_{};
-  std::optional<std::array<double, 2>> recent_accel_grid_{};
+  std::optional<std::array<double, 3>> recent_accel_grid_{};
 };
 
 #endif // !POSITION_ESTIMATOR_HPP
