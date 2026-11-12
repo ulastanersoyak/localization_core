@@ -6,7 +6,7 @@
 gives a smoother position and altitude than the raw receiver and predicts
 where the device will be a moment later.
 
-![the gazebo simulation: the blue vehicle, its green ghost one second ahead, and the accuracy overlay](docs/images/simulation.png)
+![the gazebo simulation: the drone flying its figure-eight, its ghost one second ahead, the noisy gps fixes and the accuracy overlay](docs/images/simulation.gif)
 
 ## how it works
 
@@ -108,7 +108,7 @@ prints the summary. on fedora gazebo lives in the `gazebo` distrobox (ubuntu
 | `--manual` | | don't fly; command `/drone/cmd_vel` by hand (see `sim/gui.config`) |
 | `--no-follow` | | don't move the camera with the drone |
 
-![close up: the ghost turns yellow as the prediction error grows](docs/images/ghost_closeup.png)
+![close up: the ghost on the drone, and the orange sphere where an earlier ghost said it would be](docs/images/ghost_closeup.png)
 
 what is drawn:
 
@@ -156,6 +156,12 @@ the camera is turned towards the estimate (never the ground truth), slew
 rate limited, so it keeps the drone in view. detections arrive late because
 yolo takes time, so all measurements are buffered and fused in timestamp
 order a fixed time behind the simulation.
+
+![pole tracking: the uwb range ring, the camera ray from the pole and the fused estimate following the drone](docs/images/pole_tracking.gif)
+
+what the pole camera sees, with yolo's detection and a zoomed inset:
+
+![yolo detections from the pole camera](docs/images/yolo_detections.gif)
 
 the detector is trained once on images generated from simulated flights,
 labelled from the true pose:
