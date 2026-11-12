@@ -333,6 +333,7 @@ class pole_tracking_sim
   std::size_t gps_fixes_{ 0 };
   std::size_t gps_rejected_{ 0 };
   std::size_t resets_{ 0 };
+  std::size_t diverged_{ 0 };
   std::ofstream csv_{};
 
   static pole_estimator_config
@@ -582,6 +583,11 @@ private:
     const vec3 d = minus (
         { p[0] + ahead * v[0], p[1] + ahead * v[1], p[2] + ahead * v[2] },
         camera_.position);
+    if (!std::isfinite (d[0]) || !std::isfinite (d[1])
+        || !std::isfinite (d[2]))
+      {
+        return;
+      }
     const double want_yaw = std::atan2 (d[1], d[0]);
     const double want_pitch = std::clamp (
         -std::atan2 (d[2], std::hypot (d[0], d[1])), -80 * pi / 180,
@@ -661,6 +667,15 @@ private:
         estimator_.advance_to (t);
         std::visit ([this, t] (const auto &m) { handle (t, m); },
                     node.mapped ());
+        if (estimator_.initialized () && !estimator_.healthy ())
+          {
+            // Start over from the next measurement rather than carry a
+            // broken state (and steer the camera with it).
+            estimator_.reset ();
+            ++diverged_;
+            std::cerr << "estimate diverged at t=" << t << ", restarting"
+                      << std::endl;
+          }
         if (estimator_.initialized ())
           {
             score (t);
@@ -1104,7 +1119,8 @@ private:
               << in_view_percent () << " % of the time\n";
     std::cout << "  detections: " << detections_ << " (rejected "
               << detections_rejected_ << ", too late " << detections_late_
-              << ", resets " << resets_ << "), uwb ranges: " << ranges_
+              << ", resets " << resets_ << ", diverged " << diverged_
+              << "), uwb ranges: " << ranges_
               << " (rejected " << ranges_rejected_ << ")";
     if (opt_.use_gps)
       {

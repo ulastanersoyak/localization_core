@@ -3,6 +3,7 @@
 
 #include "kalman/kalman_filter.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <optional>
@@ -208,6 +209,30 @@ public:
     initialized_ = true;
   }
 
+  // Forgets the state; the next measurement that can, initializes it again.
+  void
+  reset () noexcept
+  {
+    initialized_ = false;
+  }
+
+  // False once the state or its uncertainty is no longer a finite number.
+  [[nodiscard]] bool
+  healthy () const
+  {
+    const auto &x = filter_.state ();
+    const auto &P = filter_.covariance ();
+    for (std::size_t i = 0; i < 6; ++i)
+      {
+        if (!std::isfinite (x (i, 0)) || !std::isfinite (P (i, i))
+            || P (i, i) < 0)
+          {
+            return false;
+          }
+      }
+    return true;
+  }
+
   // Predicts forward to time t. Out of order times are ignored.
   void
   advance_to (double t)
@@ -232,7 +257,7 @@ public:
   {
     const vec3 to_tag = minus (position (), anchor_);
     const double predicted = norm (to_tag);
-    if (predicted < 1e-3)
+    if (!std::isfinite (range_m) || predicted < 1e-3)
       {
         return false;
       }
@@ -240,7 +265,7 @@ public:
     const matrix<1, 6> H{ u[0], u[1], u[2], 0, 0, 0 };
     const vector<1> z{ range_m + dot (u, anchor_) };
     const matrix<1, 1> R{ config_.range_sigma_m * config_.range_sigma_m };
-    if (filter_.nis (z, H, R) > config_.gate_1d)
+    if (!(filter_.nis (z, H, R) <= config_.gate_1d))
       {
         return false;
       }
@@ -253,15 +278,24 @@ public:
   {
     // Measures the sideways offset of the state from the ray, in the plane
     // across it. Sideways uncertainty grows with distance.
-    const vec3 t1 = normalized (cross (ray, { 0, 0, 1 }));
+    if (!std::isfinite (ray[0]) || !std::isfinite (ray[1])
+        || !std::isfinite (ray[2]))
+      {
+        return false;
+      }
+    // Any axis across the ray works; up fails for a ray close to vertical.
+    const vec3 across
+        = std::abs (ray[2]) < 0.9 ? vec3{ 0, 0, 1 } : vec3{ 1, 0, 0 };
+    const vec3 t1 = normalized (cross (ray, across));
     const vec3 t2 = cross (ray, t1);
     const matrix<2, 6> H{ t1[0], t1[1], t1[2], 0, 0, 0, //
                           t2[0], t2[1], t2[2], 0, 0, 0 };
     const vector<2> z{ dot (t1, anchor_), dot (t2, anchor_) };
     const double sigma
-        = config_.bearing_sigma_rad * norm (minus (position (), anchor_));
+        = config_.bearing_sigma_rad
+          * std::max (norm (minus (position (), anchor_)), 0.5);
     const matrix<2, 2> R{ sigma * sigma, 0, 0, sigma * sigma };
-    if (filter_.nis (z, H, R) > config_.gate_2d)
+    if (!(filter_.nis (z, H, R) <= config_.gate_2d))
       {
         return false;
       }
@@ -275,11 +309,16 @@ public:
     const matrix<3, 6> H{ 1, 0, 0, 0, 0, 0, //
                           0, 1, 0, 0, 0, 0, //
                           0, 0, 1, 0, 0, 0 };
+    if (!std::isfinite (position[0]) || !std::isfinite (position[1])
+        || !std::isfinite (position[2]))
+      {
+        return false;
+      }
     const vector<3> z{ position[0], position[1], position[2] };
     const matrix<3, 3> R{ sigma_m * sigma_m, 0, 0, 0,
                           sigma_m * sigma_m, 0, 0, 0,
                           sigma_up_m * sigma_up_m };
-    if (filter_.nis (z, H, R) > config_.gate_3d)
+    if (!(filter_.nis (z, H, R) <= config_.gate_3d))
       {
         return false;
       }
@@ -295,7 +334,7 @@ public:
                           0, 0, 0, 0, 1, 0 };
     const vector<2> z{ v_east, v_north };
     const matrix<2, 2> R{ sigma_mps * sigma_mps, 0, 0, sigma_mps * sigma_mps };
-    if (filter_.nis (z, H, R) > config_.gate_2d)
+    if (!(filter_.nis (z, H, R) <= config_.gate_2d))
       {
         return false;
       }

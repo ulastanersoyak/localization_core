@@ -4,6 +4,8 @@
 #include "check.hpp"
 #include "pole_estimator.hpp"
 
+#include <limits>
+
 void
 pole_estimator_test ()
 {
@@ -69,6 +71,38 @@ pole_estimator_test ()
   check (!estimator.add_bearing (camera.ray (200.0, 900.0)),
          "false detection rejected");
   check (!estimator.add_range (range + 5.0), "range outlier rejected");
+
+  // Measurements that are not numbers are rejected and leave it healthy.
+  const double nan = std::numeric_limits<double>::quiet_NaN ();
+  check (!estimator.add_range (nan), "nan range rejected");
+  check (!estimator.add_bearing ({ nan, 0.0, 1.0 }), "nan ray rejected");
+  check (!estimator.add_gps ({ nan, 0.0, 0.0 }, 1.0, 1.0),
+         "nan gps rejected");
+  check (estimator.healthy (), "healthy after nan input");
+
+  // A drone straight above the pole: the ray is vertical.
+  const vec3 above{ camera.position[0], camera.position[1],
+                    camera.position[2] + 10.0 };
+  pole_estimator overhead{ {}, camera.position };
+  overhead.initialize (0.0, { above[0] + 0.5, above[1], above[2] }, 2.0);
+  for (int i = 1; i <= 20; ++i)
+    {
+      overhead.advance_to (i * 0.01);
+      (void)overhead.add_bearing ({ 0.0, 0.0, 1.0 });
+      (void)overhead.add_range (10.0);
+    }
+  check (overhead.healthy (), "vertical ray keeps it finite");
+  check_near (norm (minus (overhead.position (), above)), 0.0, 0.1,
+              "vertical ray fix");
+
+  // An estimate sitting on the anchor has no bearing scale; still finite.
+  pole_estimator on_anchor{ {}, camera.position };
+  on_anchor.initialize (0.0, camera.position, 1.0);
+  (void)on_anchor.add_bearing (center);
+  check (on_anchor.healthy (), "estimate on the anchor stays finite");
+
+  on_anchor.reset ();
+  check (!on_anchor.initialized (), "reset forgets the state");
 }
 
 #endif // !POLE_TEST_HPP
