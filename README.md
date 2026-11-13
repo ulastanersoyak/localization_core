@@ -7,11 +7,11 @@ git submodule:
 
 | repository | what |
 |---|---|
-| `gnss_imu_prediction` | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
-| `drone_localization` | locates a drone in 3d from external sensors; currently a pole with a uwb anchor and a pan-tilt camera running a yolo detector, optionally fused with the drone's imu and gps |
+| [gnss_imu_prediction](https://github.com/ulastanersoyak/gnss_imu_prediction) | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
+| [drone_localization](https://github.com/ulastanersoyak/drone_localization) | locates a drone in 3d from external sensors; currently a pole with a uwb anchor and a pan-tilt camera running a yolo detector, optionally fused with the drone's imu and gps |
 
-guides: [getting started](docs/getting-started.html) ·
-[how it works](docs/how-it-works.html)
+guides: [getting started](https://ulastanersoyak.github.io/localization_core/getting-started.html) ·
+[how it works](https://ulastanersoyak.github.io/localization_core/how-it-works.html)
 
 ## what is in here
 
