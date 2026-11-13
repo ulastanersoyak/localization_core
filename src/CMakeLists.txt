@@ -1,9 +1,9 @@
 # Every library and header only part (matrix, kalman_filter, queue, ...)
 # lives under includes/.
-add_library(gnss_imu_fusion_headers INTERFACE)
-target_include_directories(gnss_imu_fusion_headers
+add_library(localization_core_headers INTERFACE)
+target_include_directories(localization_core_headers
                            INTERFACE ${PROJECT_SOURCE_DIR}/includes)
-target_compile_features(gnss_imu_fusion_headers INTERFACE cxx_std_20)
+target_compile_features(localization_core_headers INTERFACE cxx_std_20)
 
 # The serial port based parts need Boost.Asio, everything else builds without
 # it so the tests can run on any machine. Prefer the BoostConfig.cmake shipped
@@ -22,7 +22,7 @@ if(Boost_FOUND)
   add_subdirectory(utility)
   add_subdirectory(gps)
 else()
-  message(STATUS "gnss-imu-fusion: Boost not found, skipping the serial port, gps and mti_630 libraries")
+  message(STATUS "localization_core: Boost not found, skipping the serial port, gps and mti_630 libraries")
 endif()
 
 add_subdirectory(mti_630)

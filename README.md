@@ -1,4 +1,4 @@
-# gnss-imu-fusion
+# localization_core
 
 the common parts of two positioning projects for a raspberry pi 4 carrying a
 u-blox max-m10s gnss receiver and an xsens mti-630 imu, and the glue between
@@ -30,10 +30,10 @@ mti-630 ─── xbus (115200 baud) ─▶ mtdata2 parser ───────
 | `serial_port` | `includes/utility`, `src/utility` | boost.asio serial port (needs boost) |
 | `gps` | `includes/gps`, `src/gps` | max-m10s reader: rmc + gga of the same epoch → `gps_fix` (needs boost) |
 | `mti_630` | `includes/mti_630`, `src/mti_630` | mti-630 reader (needs boost) |
-| `gnss_imu_fusion_headers` | `includes/kalman`, `includes/utility` | header only: fixed size `matrix`, generic `kalman_filter`, `gps_fix`/`sensor_event`, thread safe `queue` |
-| `gnss_imu_fusion_sim` | `sim/src` | simulation helpers: gazebo ⇄ lat/lon local frame, error statistics |
+| `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: fixed size `matrix`, generic `kalman_filter`, `gps_fix`/`sensor_event`, thread safe `queue` |
+| `localization_core_sim` | `sim/src` | simulation helpers: gazebo ⇄ lat/lon local frame, error statistics |
 | `AccuracyOverlay` | `sim/gui_plugin` | gazebo gui plugin drawing the live accuracy, built into `<build>/gz_gui_plugins` |
-| `gnss_imu_fusion_test_support` | `test/cpp/check.hpp` | the tiny check helpers the tests use |
+| `localization_core_test_support` | `test/cpp/check.hpp` | the tiny check helpers the tests use |
 
 also here: `sim/gui.config` (the gazebo gui layout both simulations use),
 `cmake/common.cmake` (c++ standard and warnings for all three repositories),
@@ -54,34 +54,34 @@ ctest --test-dir build
 ## using it from another repository
 
 ```
-git submodule add ../gnss-imu-fusion external/gnss-imu-fusion
+git submodule add ../localization_core external/localization_core
 ```
 
 ```cmake
 project(my_project LANGUAGES CXX)
-include(external/gnss-imu-fusion/cmake/common.cmake)
-add_subdirectory(external/gnss-imu-fusion)
+include(external/localization_core/cmake/common.cmake)
+add_subdirectory(external/localization_core)
 
-target_link_libraries(my_target PRIVATE utm xbus gnss_imu_fusion_headers)
+target_link_libraries(my_target PRIVATE utm xbus localization_core_headers)
 if(TARGET gps) # only with boost
   target_link_libraries(my_device_program PRIVATE gps mti_630)
 endif()
 ```
 
 the unit tests here are only built when this is the top level project
-(`-DGNSS_IMU_FUSION_BUILD_TESTS=ON` forces them).
+(`-DLOCALIZATION_CORE_BUILD_TESTS=ON` forces them).
 
 to work on all three at once, clone them side by side:
 
 ```
-~/gnss-imu-fusion             this repository
-~/gnss_imu_prediction         external/gnss-imu-fusion → ../gnss-imu-fusion
-~/drone_localization     external/gnss-imu-fusion → ../gnss-imu-fusion
+~/localization_core             this repository
+~/gnss_imu_prediction         external/localization_core → ../localization_core
+~/drone_localization     external/localization_core → ../localization_core
 ```
 
 a change here reaches a project after committing it here and moving that
-project's submodule: `git -C external/gnss-imu-fusion pull` then committing
-`external/gnss-imu-fusion` in the project.
+project's submodule: `git -C external/localization_core pull` then committing
+`external/localization_core` in the project.
 
 ## history
 

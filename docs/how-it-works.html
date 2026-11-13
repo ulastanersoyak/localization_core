@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How it works · gnss-imu-fusion</title>
+<title>How it works · localization_core</title>
 <style>
 :root{--bg:#fbfaf8;--fg:#1d1d1f;--muted:#5f6368;--line:#e3e1dc;--card:#ffffff;
 --code:#f2f0ec;--accent:#c2410c;--accent2:#1d4ed8;--ok:#15803d;--warn:#b45309}
@@ -52,7 +52,7 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <body>
 <main>
 <header class="top">
-<div class="repo">gnss-imu-fusion</div>
+<div class="repo">localization_core</div>
 <h1>How it works</h1>
 <p class="lede">From NMEA text and Xbus bytes to typed measurements in metres, and the Kalman core both filters share.</p>
 <nav class="pages"><a href="getting-started.html">getting started</a><a href="how-it-works.html" class="here">how it works</a><a href="../README.md">readme</a></nav>
@@ -128,7 +128,7 @@ update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)�
 <li><code>AccuracyOverlay</code>: a Gazebo GUI plugin that subscribes to <code>/positioning/overlay</code> and draws the live accuracy text over the 3D view. <code>sim/gui.config</code> is the window layout both simulations start with.</li>
 </ul>
 
-<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss_imu_prediction and drone_localization</footer>
+<footer>localization_core · part of localization_core, gnss_imu_prediction and drone_localization</footer>
 </main>
 </body>
 </html>

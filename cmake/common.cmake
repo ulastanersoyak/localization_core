@@ -1,8 +1,8 @@
-# Build settings shared by gnss-imu-fusion and the projects that use it
+# Build settings shared by localization_core and the projects that use it
 # (gnss_imu_prediction, drone_localization). Include it right after
 # project():
 #
-#   include(external/gnss-imu-fusion/cmake/common.cmake)
+#   include(external/localization_core/cmake/common.cmake)
 include_guard(GLOBAL)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)

@@ -1,2 +1,2 @@
 add_library(gps STATIC gps.cpp)
-target_link_libraries(gps PUBLIC gnss_imu_fusion_headers utm rmc serial_port)
+target_link_libraries(gps PUBLIC localization_core_headers utm rmc serial_port)

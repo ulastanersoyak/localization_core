@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Getting started · gnss-imu-fusion</title>
+<title>Getting started · localization_core</title>
 <style>
 :root{--bg:#fbfaf8;--fg:#1d1d1f;--muted:#5f6368;--line:#e3e1dc;--card:#ffffff;
 --code:#f2f0ec;--accent:#c2410c;--accent2:#1d4ed8;--ok:#15803d;--warn:#b45309}
@@ -52,7 +52,7 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <body>
 <main>
 <header class="top">
-<div class="repo">gnss-imu-fusion</div>
+<div class="repo">localization_core</div>
 <h1>Getting started</h1>
 <p class="lede">Build the shared library, use it from a project, and keep the three repositories in step.</p>
 <nav class="pages"><a href="getting-started.html" class="here">getting started</a><a href="how-it-works.html">how it works</a><a href="../README.md">readme</a></nav>
@@ -60,15 +60,15 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <p>This repository is the common base of two projects. It holds the sensor parsers, coordinate conversion, IMU driver, matrix and Kalman filter core, and the Gazebo helpers that both projects use. The projects pull it in as a git submodule.</p>
 
 <div class="cards">
-<div class="card"><h4>gnss-imu-fusion</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, gazebo overlay</p></div>
+<div class="card"><h4>localization_core</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, gazebo overlay</p></div>
 <div class="card"><h4>gnss_imu_prediction</h4><p>gps + imu kalman filter, predicts the position 1 s ahead; device program and the “ghost” simulation</p></div>
 <div class="card"><h4>drone_localization</h4><p>locates a drone in 3d from external sensors (currently a pole with uwb range and a yolo camera bearing)</p></div>
 </div>
 
 <h2>1. get all three side by side</h2>
-<p>The projects find this repo through the relative submodule URL <code>../gnss-imu-fusion</code>, so keep the three clones in the same parent directory, both locally and on GitHub (same account).</p>
+<p>The projects find this repo through the relative submodule URL <code>../localization_core</code>, so keep the three clones in the same parent directory, both locally and on GitHub (same account).</p>
 <pre><code>cd ~
-git clone &lt;url&gt;/gnss-imu-fusion
+git clone &lt;url&gt;/localization_core
 git clone --recurse-submodules &lt;url&gt;/gnss_imu_prediction
 git clone --recurse-submodules &lt;url&gt;/drone_localization</code></pre>
 <div class="note">For clones that live only on your disk, git refuses local (<code>file://</code>) submodules by default. Inside a project run<br><code>git -c protocol.file.allow=always submodule update --init</code></div>
@@ -90,15 +90,15 @@ cmake --build build -j</code></pre></li>
 </ol>
 
 <h2>3. use it from a project</h2>
-<pre><code>git submodule add ../gnss-imu-fusion external/gnss-imu-fusion</code></pre>
+<pre><code>git submodule add ../localization_core external/localization_core</code></pre>
 <pre><code>cmake_minimum_required(VERSION 3.22)
 project(my_project LANGUAGES CXX)
 
-include(external/gnss-imu-fusion/cmake/common.cmake)   # c++20 + warnings
-add_subdirectory(external/gnss-imu-fusion)
+include(external/localization_core/cmake/common.cmake)   # c++20 + warnings
+add_subdirectory(external/localization_core)
 
 add_executable(my_tool tool.cpp)
-target_link_libraries(my_tool PRIVATE utm xbus gnss_imu_fusion_headers)
+target_link_libraries(my_tool PRIVATE utm xbus localization_core_headers)
 
 if(TARGET gps AND TARGET mti_630)    # only with boost
   target_link_libraries(my_device PRIVATE gps mti_630 Threads::Threads)
@@ -110,22 +110,22 @@ endif()</code></pre>
 <tr><td><code>rmc</code></td><td>checksum-verified <code>$..RMC</code> sentence</td><td></td></tr>
 <tr><td><code>utm</code></td><td>lat/lon ⇄ utm, grid convergence</td><td></td></tr>
 <tr><td><code>xbus</code></td><td>xbus framing, mtdata2 → <code>Xbus</code> sample, acceleration in ENU</td><td></td></tr>
-<tr><td><code>gnss_imu_fusion_headers</code></td><td><code>matrix</code>, <code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>sensor_event</code>, <code>queue</code></td><td></td></tr>
+<tr><td><code>localization_core_headers</code></td><td><code>matrix</code>, <code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>sensor_event</code>, <code>queue</code></td><td></td></tr>
 <tr><td><code>serial_port</code>, <code>gps</code>, <code>mti_630</code></td><td>live readers for the max-m10s and the mti-630</td><td>boost</td></tr>
-<tr><td><code>gnss_imu_fusion_sim</code></td><td><code>local_frame.hpp</code>, <code>error_stats.hpp</code></td><td></td></tr>
-<tr><td><code>gnss_imu_fusion_test_support</code></td><td><code>check.hpp</code></td><td></td></tr>
+<tr><td><code>localization_core_sim</code></td><td><code>local_frame.hpp</code>, <code>error_stats.hpp</code></td><td></td></tr>
+<tr><td><code>localization_core_test_support</code></td><td><code>check.hpp</code></td><td></td></tr>
 <tr><td><code>AccuracyOverlay</code></td><td>gazebo gui plugin, plus <code>sim/gui.config</code></td><td>gazebo, qt5</td></tr>
 </table>
-<p>The tests here only build when this is the top-level project. Add <code>-DGNSS_IMU_FUSION_BUILD_TESTS=ON</code> to build them from a project too.</p>
+<p>The tests here only build when this is the top-level project. Add <code>-DLOCALIZATION_CORE_BUILD_TESTS=ON</code> to build them from a project too.</p>
 
 <h2>4. change shared code</h2>
 <p>A submodule is pinned to one commit, so a change here does not reach a project until you move its pointer:</p>
 <ol class="steps">
-<li>Edit, test and commit in <code>~/gnss-imu-fusion</code>.</li>
-<li>In the project: <code>git -C external/gnss-imu-fusion pull</code> (or check out the commit you want).</li>
-<li>Rebuild and test the project, then <code>git add external/gnss-imu-fusion &amp;&amp; git commit</code>.</li>
+<li>Edit, test and commit in <code>~/localization_core</code>.</li>
+<li>In the project: <code>git -C external/localization_core pull</code> (or check out the commit you want).</li>
+<li>Rebuild and test the project, then <code>git add external/localization_core &amp;&amp; git commit</code>.</li>
 </ol>
-<div class="note">While working on both at once you can also edit inside <code>external/gnss-imu-fusion</code> directly, since it is a full clone. Commit there, push it back to <code>~/gnss-imu-fusion</code>, then commit the new pointer in the project.</div>
+<div class="note">While working on both at once you can also edit inside <code>external/localization_core</code> directly, since it is a full clone. Commit there, push it back to <code>~/localization_core</code>, then commit the new pointer in the project.</div>
 
 <h2>5. the real hardware</h2>
 <ol class="steps">
@@ -135,12 +135,12 @@ endif()</code></pre>
 </ol>
 
 <h2>6. publish to GitHub</h2>
-<pre><code>gh repo create gnss-imu-fusion --public --source ~/gnss-imu-fusion --push
+<pre><code>gh repo create localization_core --public --source ~/localization_core --push
 gh repo create gnss_imu_prediction --public --source ~/gnss_imu_prediction --push
 gh repo create drone_localization --public --source ~/drone_localization --push</code></pre>
 <p>Because the submodule URL is relative, it resolves to the sibling repository on GitHub with no change. GitHub's language bar ignores submodule contents, so each project shows only its own languages.</p>
 
-<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss_imu_prediction and drone_localization</footer>
+<footer>localization_core · part of localization_core, gnss_imu_prediction and drone_localization</footer>
 </main>
 </body>
 </html>

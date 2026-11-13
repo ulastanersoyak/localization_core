@@ -1,6 +1,6 @@
 # Header only helpers for the Gazebo bridges (local_frame, error_stats).
-add_library(gnss_imu_fusion_sim INTERFACE)
-target_include_directories(gnss_imu_fusion_sim
+add_library(localization_core_sim INTERFACE)
+target_include_directories(localization_core_sim
                            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # GUI overlay showing the estimate accuracy on the Gazebo screen. It is built
