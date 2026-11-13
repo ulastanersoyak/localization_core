@@ -1,6 +1,8 @@
 add_executable(tests test.cpp)
-target_link_libraries(tests PRIVATE gnss_imu_fusion_test_support utm xbus rmc
-                                    time_and_location)
+# check.hpp's directory (test/cpp) has to come after includes/: the test
+# headers mirror the library paths (gps/gps.hpp includes the real gps/gps.hpp).
+target_link_libraries(tests PRIVATE utm xbus rmc time_and_location
+                                    gnss_imu_fusion_test_support)
 add_test(NAME tests COMMAND tests)
 
 # The GPS class needs Boost.Asio, see src/CMakeLists.txt.

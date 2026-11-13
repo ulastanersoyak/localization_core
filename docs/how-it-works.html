@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works · gnss-imu-fusion</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1d1d1f;--muted:#5f6368;--line:#e3e1dc;--card:#ffffff;
+--code:#f2f0ec;--accent:#c2410c;--accent2:#1d4ed8;--ok:#15803d;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--fg:#e8e6e3;
+--muted:#a1a1aa;--line:#2c2c31;--card:#1c1c20;--code:#232328;--accent:#fb923c;--accent2:#60a5fa;
+--ok:#4ade80;--warn:#fbbf24}}
+:root[data-theme="dark"]{--bg:#141416;--fg:#e8e6e3;--muted:#a1a1aa;--line:#2c2c31;--card:#1c1c20;
+--code:#232328;--accent:#fb923c;--accent2:#60a5fa;--ok:#4ade80;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+header.top{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+.repo{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);letter-spacing:.04em}
+h1{font-size:2rem;line-height:1.2;margin:.35em 0 .3em}
+.lede{color:var(--muted);font-size:1.08rem;margin:0}
+nav.pages{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+nav.pages a{font-size:14px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--fg)}
+nav.pages a.here{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+h2{font-size:1.4rem;margin:2.2em 0 .5em;padding-top:.2em}
+h3{font-size:1.08rem;margin:1.6em 0 .4em}
+a{color:var(--accent2)}
+code{font:0.88em ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);padding:.1em .35em;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;line-height:1.5}
+pre code{background:none;padding:0;font-size:13.5px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:1em 0;display:block;overflow-x:auto}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:13px;text-transform:lowercase}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps>li{counter-increment:s;position:relative;padding-left:44px;margin:0 0 22px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+background:var(--accent);color:var(--bg);font-weight:700;display:grid;place-items:center;font-size:14px}
+.note{border-left:3px solid var(--accent2);background:var(--card);padding:10px 14px;border-radius:0 8px 8px 0;margin:1em 0;font-size:15px}
+.note.warn{border-color:var(--warn)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:1em 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+figure{margin:1.4em 0}
+figure img,figure svg{max-width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
+figcaption{color:var(--muted);font-size:14px;margin-top:6px}
+svg text{font-family:system-ui,sans-serif}
+.math{font-family:ui-monospace,Menlo,monospace;background:var(--code);padding:10px 14px;border-radius:8px;overflow-x:auto;white-space:pre;font-size:14px}
+footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+<div class="repo">gnss-imu-fusion</div>
+<h1>How it works</h1>
+<p class="lede">From NMEA text and Xbus bytes to typed measurements in metres, and the Kalman core both filters share.</p>
+<nav class="pages"><a href="getting-started.html">getting started</a><a href="how-it-works.html" class="here">how it works</a><a href="../README.md">readme</a></nav>
+</header>
+<p>Both projects start from the same raw bytes: NMEA text from a u-blox MAX-M10S at 9600 baud, and binary Xbus packets from an Xsens MTi-630 at 115200 baud. This repo turns those bytes into typed, timestamped measurements and provides the linear-algebra and filter core that each project builds its estimator on.</p>
+
+<figure>
+<svg viewBox="0 0 820 250" role="img" aria-label="data flow from sensors to the projects">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="currentColor"/></marker></defs>
+<g fill="none" stroke="currentColor" stroke-width="1.4" style="color:var(--muted)">
+<rect x="10" y="30" width="120" height="50" rx="8"/><rect x="10" y="160" width="120" height="50" rx="8"/>
+<rect x="175" y="30" width="135" height="50" rx="8"/><rect x="350" y="30" width="110" height="50" rx="8"/>
+<rect x="175" y="160" width="285" height="50" rx="8"/>
+<rect x="505" y="95" width="100" height="50" rx="8"/>
+<rect x="650" y="40" width="160" height="50" rx="8" style="color:var(--accent)"/>
+<rect x="650" y="150" width="160" height="50" rx="8" style="color:var(--accent)"/>
+<path d="M130 55H170" marker-end="url(#a)"/><path d="M310 55H345" marker-end="url(#a)"/><path d="M130 185H170" marker-end="url(#a)"/><path d="M460 55 Q485 55 500 110" marker-end="url(#a)"/><path d="M460 185 Q485 185 500 130" marker-end="url(#a)"/><path d="M605 115 Q630 100 646 70" marker-end="url(#a)"/><path d="M605 125 Q630 140 646 170" marker-end="url(#a)"/>
+</g>
+<g font-size="13" fill="var(--fg)" text-anchor="middle">
+<text x="70" y="52">max-m10s</text><text x="70" y="69" fill="var(--muted)" font-size="11">nmea 1 hz</text>
+<text x="70" y="182">mti-630</text><text x="70" y="199" fill="var(--muted)" font-size="11">xbus 100 hz</text>
+<text x="242" y="52">rmc + gga</text><text x="242" y="69" fill="var(--muted)" font-size="11">checksum, pairing</text>
+<text x="405" y="52">utm</text><text x="405" y="69" fill="var(--muted)" font-size="11">metres</text>
+<text x="317" y="182">xbus framing → mtdata2</text><text x="317" y="199" fill="var(--muted)" font-size="11">quaternion, acc → ENU, −g</text>
+<text x="555" y="117">queue</text><text x="555" y="134" fill="var(--muted)" font-size="11">sensor_event</text>
+<text x="730" y="62">prediction</text><text x="730" y="79" fill="var(--muted)" font-size="11">position_estimator</text>
+<text x="730" y="172">pole localization</text><text x="730" y="189" fill="var(--muted)" font-size="11">pole_estimator</text>
+</g>
+</svg>
+<figcaption>Everything left of the queue lives here. The two filters on the right live in the projects and use <code>kalman_filter&lt;N&gt;</code> from here.</figcaption>
+</figure>
+
+<h2>gps: nmea sentences</h2>
+<p>The receiver prints one line per sentence, ending in <code>*hh</code>, an XOR checksum of every character between <code>$</code> and <code>*</code>. Lines that fail the checksum are dropped. Two sentences are used:</p>
+<pre><code>$GNRMC,072223.00,A,3958.59211,N,03244.28744,E,0.012,,191024,,,A*6C
+       time      ok lat         lon         knots course date
+$GNGGA,072223.00,3958.59211,N,03244.28744,E,1,05,2.30,894.2,M,...
+       time                                  sats hdop altitude</code></pre>
+<ul>
+<li><b>Coordinates</b> are <code>ddmm.mmmm</code> (latitude) and <code>dddmm.mmmm</code> (longitude), so degrees = <code>dd + mm.mmmm/60</code>, negated for S and W. <code>time_and_location</code> validates every field. A malformed one throws instead of yielding a silently wrong position.</li>
+<li><b>RMC</b> gives the position, speed over ground (knots → m/s) and true course. Status <code>V</code> means no fix.</li>
+<li><b>GGA</b> gives the altitude and the HDOP, which sets how far each fix is trusted (σ ≈ HDOP × UERE).</li>
+<li><b>Epoch pairing.</b> Receivers send the GGA right after the RMC of the same second. <code>gps::process_sentence</code> holds a valid RMC until the GGA with the same timestamp arrives and returns one <code>gps_fix</code> with both. Without the pairing, a climbing vehicle would get last second's altitude.</li>
+</ul>
+
+<h2>utm: degrees to metres</h2>
+<p>A filter wants a flat Cartesian frame. UTM splits the earth into 60 six-degree zones and projects each with a transverse Mercator. Within a zone, easting and northing are metres with a small, known scale error. <code>utm</code> implements the forward and inverse series (the NGS/USGS formulas in <code>docs/</code>) and the <b>grid convergence</b>: the angle between grid north and true north. Course and IMU headings are relative to true north, so the filters rotate them by the convergence before mixing them with UTM positions.</p>
+
+<h2>imu: xbus packets</h2>
+<pre><code>FA  FF  36  len  [ data … ]  checksum
+preamble bus mid      mtdata2 items   sum of bytes after FA ≡ 0 (mod 256)</code></pre>
+<ul>
+<li><b>Framing</b> (<code>xbus_packet</code>) is a byte-by-byte state machine. If a checksum fails, it rescans the buffered bytes from the next <code>FA</code>, so a real packet hidden inside a corrupted one is not lost.</li>
+<li><b>MTData2</b> is a list of <code>[data id (2 B), size (1 B), payload]</code> items, big-endian floats. The parser reads the sample time (10 kHz ticks), quaternion, acceleration, free acceleration, rate of turn, Euler angles and status. The low bits of the data id give the output frame (ENU, NED, NWU).</li>
+<li><b>Acceleration in ENU.</b> <code>Xbus::accelerationENU()</code> prefers the device's free acceleration (gravity already removed). Otherwise it rotates the raw specific force by the orientation quaternion into the local frame and subtracts g. At rest an accelerometer reads +g upward, which is why the subtraction is needed. Any error in g becomes a constant vertical bias, so the value is a parameter.</li>
+</ul>
+
+<h2>the filter core</h2>
+<p><code>matrix&lt;R, C&gt;</code> is a fixed-size, stack-allocated matrix with sizes checked at compile time, and <code>inverse()</code> is Gauss–Jordan with partial pivoting. <code>kalman_filter&lt;N&gt;</code> is the generic linear Kalman filter both projects use:</p>
+<div class="math">predict:  x ← F x + u              P ← F P Fᵀ + Q
+innovate: y = z − H x              S = H P Hᵀ + R
+gate:     NIS = yᵀ S⁻¹ y           (χ² with dim z dof; reject above the 99.9 % value)
+update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)ᵀ + K R Kᵀ</div>
+<p>The last line is the Joseph form. It costs a little more than <code>(I − K H) P</code> but keeps P symmetric and positive definite despite rounding. A filter that runs at 100 Hz for hours needs that.</p>
+
+<h2>threads and events</h2>
+<p>Each serial port has a reader thread. Readers push a <code>sensor_event</code> (<code>gps_fix</code>, an <code>Xbus</code> sample, or <code>end_of_stream</code>) into one thread-safe <code>queue</code>. A single consumer pops events in arrival order and owns the filter, so the filter needs no locks.</p>
+
+<h2>simulation helpers</h2>
+<ul>
+<li><code>local_frame.hpp</code>: WGS84 lat/lon/height ⇄ the local ENU tangent plane that a Gazebo world with <code>&lt;spherical_coordinates&gt;</code> uses, to compare an estimate with Gazebo's ground truth.</li>
+<li><code>error_stats.hpp</code>: running mean, RMS, max and percentiles of an error. p95 is the error that 95 % of samples stay under: it shows the bad cases without being set by one outlier.</li>
+<li><code>AccuracyOverlay</code>: a Gazebo GUI plugin that subscribes to <code>/positioning/overlay</code> and draws the live accuracy text over the 3D view. <code>sim/gui.config</code> is the window layout both simulations start with.</li>
+</ul>
+
+<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss-imu-prediction and drone-pole-localization</footer>
+</main>
+</body>
+</html>

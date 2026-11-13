@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started · gnss-imu-fusion</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1d1d1f;--muted:#5f6368;--line:#e3e1dc;--card:#ffffff;
+--code:#f2f0ec;--accent:#c2410c;--accent2:#1d4ed8;--ok:#15803d;--warn:#b45309}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--fg:#e8e6e3;
+--muted:#a1a1aa;--line:#2c2c31;--card:#1c1c20;--code:#232328;--accent:#fb923c;--accent2:#60a5fa;
+--ok:#4ade80;--warn:#fbbf24}}
+:root[data-theme="dark"]{--bg:#141416;--fg:#e8e6e3;--muted:#a1a1aa;--line:#2c2c31;--card:#1c1c20;
+--code:#232328;--accent:#fb923c;--accent2:#60a5fa;--ok:#4ade80;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+header.top{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px}
+.repo{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);letter-spacing:.04em}
+h1{font-size:2rem;line-height:1.2;margin:.35em 0 .3em}
+.lede{color:var(--muted);font-size:1.08rem;margin:0}
+nav.pages{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+nav.pages a{font-size:14px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--fg)}
+nav.pages a.here{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+h2{font-size:1.4rem;margin:2.2em 0 .5em;padding-top:.2em}
+h3{font-size:1.08rem;margin:1.6em 0 .4em}
+a{color:var(--accent2)}
+code{font:0.88em ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);padding:.1em .35em;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;line-height:1.5}
+pre code{background:none;padding:0;font-size:13.5px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:1em 0;display:block;overflow-x:auto}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:13px;text-transform:lowercase}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps>li{counter-increment:s;position:relative;padding-left:44px;margin:0 0 22px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+background:var(--accent);color:var(--bg);font-weight:700;display:grid;place-items:center;font-size:14px}
+.note{border-left:3px solid var(--accent2);background:var(--card);padding:10px 14px;border-radius:0 8px 8px 0;margin:1em 0;font-size:15px}
+.note.warn{border-color:var(--warn)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:1em 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-size:15px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+figure{margin:1.4em 0}
+figure img,figure svg{max-width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
+figcaption{color:var(--muted);font-size:14px;margin-top:6px}
+svg text{font-family:system-ui,sans-serif}
+.math{font-family:ui-monospace,Menlo,monospace;background:var(--code);padding:10px 14px;border-radius:8px;overflow-x:auto;white-space:pre;font-size:14px}
+footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+<div class="repo">gnss-imu-fusion</div>
+<h1>Getting started</h1>
+<p class="lede">Build the shared library, use it from a project, and keep the three repositories in step.</p>
+<nav class="pages"><a href="getting-started.html" class="here">getting started</a><a href="how-it-works.html">how it works</a><a href="../README.md">readme</a></nav>
+</header>
+<p>This repository is the common base of two projects. It holds the sensor parsers, coordinate conversion, IMU driver, matrix and Kalman filter core, and the Gazebo helpers that both projects use. The projects pull it in as a git submodule.</p>
+
+<div class="cards">
+<div class="card"><h4>gnss-imu-fusion</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, gazebo overlay</p></div>
+<div class="card"><h4>gnss-imu-prediction</h4><p>gps + imu kalman filter, predicts the position 1 s ahead; device program and the “ghost” simulation</p></div>
+<div class="card"><h4>drone-pole-localization</h4><p>tracks a drone from a pole with uwb range and a yolo camera bearing</p></div>
+</div>
+
+<h2>1. get all three side by side</h2>
+<p>The projects find this repo through the relative submodule URL <code>../gnss-imu-fusion</code>, so keep the three clones in the same parent directory, both locally and on GitHub (same account).</p>
+<pre><code>cd ~
+git clone &lt;url&gt;/gnss-imu-fusion
+git clone --recurse-submodules &lt;url&gt;/gnss-imu-prediction
+git clone --recurse-submodules &lt;url&gt;/drone-pole-localization</code></pre>
+<div class="note">For clones that live only on your disk, git refuses local (<code>file://</code>) submodules by default. Inside a project run<br><code>git -c protocol.file.allow=always submodule update --init</code></div>
+
+<h2>2. build and test this repo</h2>
+<ol class="steps">
+<li><b>Prerequisites.</b> CMake ≥ 3.22 and a C++20 compiler (GCC 13+ or Clang 16+). Boost (Asio, header only) is optional: without it the serial port, <code>gps</code> and <code>mti_630</code> libraries are skipped and everything else still builds.
+<pre><code>sudo dnf install cmake gcc-c++ boost-devel     # fedora
+sudo apt install cmake g++ libboost-dev        # ubuntu</code></pre></li>
+<li><b>Configure and build.</b>
+<pre><code>cmake -S . -B build
+cmake --build build -j</code></pre></li>
+<li><b>Run the tests.</b>
+<pre><code>ctest --test-dir build --output-on-failure
+# or directly, to see every case:
+./build/test/cpp/tests</code></pre>
+<p>Expect <code>[ OK ]</code> for the nmea, rmc, utm, xbus and matrix tests, plus <code>gps_altitude_pairing</code> when Boost was found.</p></li>
+<li><b>Optional: the Gazebo overlay plugin.</b> When Gazebo Harmonic (gz-gui8, gz-transport13, gz-msgs10) and Qt5 are found, <code>AccuracyOverlay</code> is built into <code>build/gz_gui_plugins/</code>. The projects' run scripts point <code>GZ_GUI_PLUGIN_PATH</code> there for you.</li>
+</ol>
+
+<h2>3. use it from a project</h2>
+<pre><code>git submodule add ../gnss-imu-fusion external/gnss-imu-fusion</code></pre>
+<pre><code>cmake_minimum_required(VERSION 3.22)
+project(my_project LANGUAGES CXX)
+
+include(external/gnss-imu-fusion/cmake/common.cmake)   # c++20 + warnings
+add_subdirectory(external/gnss-imu-fusion)
+
+add_executable(my_tool tool.cpp)
+target_link_libraries(my_tool PRIVATE utm xbus gnss_imu_fusion_headers)
+
+if(TARGET gps AND TARGET mti_630)    # only with boost
+  target_link_libraries(my_device PRIVATE gps mti_630 Threads::Threads)
+endif()</code></pre>
+
+<table>
+<tr><th>target</th><th>gives you</th><th>needs</th></tr>
+<tr><td><code>time_and_location</code></td><td>utc / date / coordinate parsers</td><td></td></tr>
+<tr><td><code>rmc</code></td><td>checksum-verified <code>$..RMC</code> sentence</td><td></td></tr>
+<tr><td><code>utm</code></td><td>lat/lon ⇄ utm, grid convergence</td><td></td></tr>
+<tr><td><code>xbus</code></td><td>xbus framing, mtdata2 → <code>Xbus</code> sample, acceleration in ENU</td><td></td></tr>
+<tr><td><code>gnss_imu_fusion_headers</code></td><td><code>matrix</code>, <code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>sensor_event</code>, <code>queue</code></td><td></td></tr>
+<tr><td><code>serial_port</code>, <code>gps</code>, <code>mti_630</code></td><td>live readers for the max-m10s and the mti-630</td><td>boost</td></tr>
+<tr><td><code>gnss_imu_fusion_sim</code></td><td><code>local_frame.hpp</code>, <code>error_stats.hpp</code></td><td></td></tr>
+<tr><td><code>gnss_imu_fusion_test_support</code></td><td><code>check.hpp</code></td><td></td></tr>
+<tr><td><code>AccuracyOverlay</code></td><td>gazebo gui plugin, plus <code>sim/gui.config</code></td><td>gazebo, qt5</td></tr>
+</table>
+<p>The tests here only build when this is the top-level project. Add <code>-DGNSS_IMU_FUSION_BUILD_TESTS=ON</code> to build them from a project too.</p>
+
+<h2>4. change shared code</h2>
+<p>A submodule is pinned to one commit, so a change here does not reach a project until you move its pointer:</p>
+<ol class="steps">
+<li>Edit, test and commit in <code>~/gnss-imu-fusion</code>.</li>
+<li>In the project: <code>git -C external/gnss-imu-fusion pull</code> (or check out the commit you want).</li>
+<li>Rebuild and test the project, then <code>git add external/gnss-imu-fusion &amp;&amp; git commit</code>.</li>
+</ol>
+<div class="note">While working on both at once you can also edit inside <code>external/gnss-imu-fusion</code> directly, since it is a full clone. Commit there, push it back to <code>~/gnss-imu-fusion</code>, then commit the new pointer in the project.</div>
+
+<h2>5. the real hardware</h2>
+<ol class="steps">
+<li><b>Raspberry Pi 4 UARTs.</b> <code>docs/uart.sh</code> has the notes for enabling uart0 (gps) and uart4 (imu).</li>
+<li><b>Check the receiver.</b> <code>test/python/get_data/get_data.py</code> captures raw NMEA from the serial port. <code>test/python/get_data/data.txt</code> is a recorded log you can replay without hardware.</li>
+<li><b>MTi-630.</b> In MT Manager enable the quaternion and (preferably) free acceleration outputs at 100 Hz, and set the magnetic declination, otherwise “north” is magnetic north.</li>
+</ol>
+
+<h2>6. publish to GitHub</h2>
+<pre><code>gh repo create gnss-imu-fusion --public --source ~/gnss-imu-fusion --push
+gh repo create gnss-imu-prediction --public --source ~/gnss-imu-prediction --push
+gh repo create drone-pole-localization --public --source ~/drone-pole-localization --push</code></pre>
+<p>Because the submodule URL is relative, it resolves to the sibling repository on GitHub with no change. GitHub's language bar ignores submodule contents, so each project shows only its own languages.</p>
+
+<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss-imu-prediction and drone-pole-localization</footer>
+</main>
+</body>
+</html>

@@ -10,6 +10,9 @@ git submodule:
 | `gnss-imu-prediction` | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
 | `drone-pole-localization` | locates a drone from a pole carrying a uwb anchor and a pan-tilt camera with a yolo detector, optionally fused with the drone's imu and gps |
 
+guides: [getting started](docs/getting-started.html) ·
+[how it works](docs/how-it-works.html)
+
 ## what is in here
 
 ```
