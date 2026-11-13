@@ -1,9 +1,7 @@
 add_library(xbus STATIC data_packet_parser.cpp xbus_packet.cpp)
-target_link_libraries(xbus time_and_location)
-target_include_directories(xbus PRIVATE ${CMAKE_SOURCE_DIR}/includes)
+target_link_libraries(xbus PUBLIC gnss_imu_fusion_headers time_and_location)
 
-if(Boost_FOUND)
+if(TARGET serial_port)
   add_library(mti_630 STATIC mti_630.cpp)
-  target_link_libraries(mti_630 xbus serial_port)
-  target_include_directories(mti_630 PRIVATE ${CMAKE_SOURCE_DIR}/includes)
+  target_link_libraries(mti_630 PUBLIC gnss_imu_fusion_headers xbus serial_port)
 endif()

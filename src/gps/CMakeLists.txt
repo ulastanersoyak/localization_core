@@ -1,3 +1,2 @@
 add_library(gps STATIC gps.cpp)
-target_link_libraries(gps utm rmc serial_port)
-target_include_directories(gps PRIVATE ${CMAKE_SOURCE_DIR}/includes)
+target_link_libraries(gps PUBLIC gnss_imu_fusion_headers utm rmc serial_port)
