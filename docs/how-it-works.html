@@ -79,7 +79,7 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <text x="317" y="182">xbus framing → mtdata2</text><text x="317" y="199" fill="var(--muted)" font-size="11">quaternion, acc → ENU, −g</text>
 <text x="555" y="117">queue</text><text x="555" y="134" fill="var(--muted)" font-size="11">sensor_event</text>
 <text x="730" y="62">prediction</text><text x="730" y="79" fill="var(--muted)" font-size="11">position_estimator</text>
-<text x="730" y="172">pole localization</text><text x="730" y="189" fill="var(--muted)" font-size="11">pole_estimator</text>
+<text x="730" y="172">drone localization</text><text x="730" y="189" fill="var(--muted)" font-size="11">pole_estimator</text>
 </g>
 </svg>
 <figcaption>Everything left of the queue lives here. The two filters on the right live in the projects and use <code>kalman_filter&lt;N&gt;</code> from here.</figcaption>
@@ -128,7 +128,7 @@ update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)�
 <li><code>AccuracyOverlay</code>: a Gazebo GUI plugin that subscribes to <code>/positioning/overlay</code> and draws the live accuracy text over the 3D view. <code>sim/gui.config</code> is the window layout both simulations start with.</li>
 </ul>
 
-<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss-imu-prediction and drone-pole-localization</footer>
+<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss_imu_prediction and drone_localization</footer>
 </main>
 </body>
 </html>

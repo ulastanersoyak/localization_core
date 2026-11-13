@@ -7,8 +7,8 @@ git submodule:
 
 | repository | what |
 |---|---|
-| `gnss-imu-prediction` | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
-| `drone-pole-localization` | locates a drone from a pole carrying a uwb anchor and a pan-tilt camera with a yolo detector, optionally fused with the drone's imu and gps |
+| `gnss_imu_prediction` | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
+| `drone_localization` | locates a drone in 3d from external sensors; currently a pole with a uwb anchor and a pan-tilt camera running a yolo detector, optionally fused with the drone's imu and gps |
 
 guides: [getting started](docs/getting-started.html) ·
 [how it works](docs/how-it-works.html)
@@ -75,8 +75,8 @@ to work on all three at once, clone them side by side:
 
 ```
 ~/gnss-imu-fusion             this repository
-~/gnss-imu-prediction         external/gnss-imu-fusion → ../gnss-imu-fusion
-~/drone-pole-localization     external/gnss-imu-fusion → ../gnss-imu-fusion
+~/gnss_imu_prediction         external/gnss-imu-fusion → ../gnss-imu-fusion
+~/drone_localization     external/gnss-imu-fusion → ../gnss-imu-fusion
 ```
 
 a change here reaches a project after committing it here and moving that
@@ -86,6 +86,6 @@ project's submodule: `git -C external/gnss-imu-fusion pull` then committing
 ## history
 
 this repository started as a 2d gps + imu position predictor for a wheeled
-robot, grew into a 3d drone filter and then a pole based drone tracker. the
+robot, grew into a 3d drone filter and then a drone localization project. the
 full history up to the split is kept here (branch `pre-split`); the two
 projects were split off with the history of their own files.

@@ -61,16 +61,16 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 
 <div class="cards">
 <div class="card"><h4>gnss-imu-fusion</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, gazebo overlay</p></div>
-<div class="card"><h4>gnss-imu-prediction</h4><p>gps + imu kalman filter, predicts the position 1 s ahead; device program and the “ghost” simulation</p></div>
-<div class="card"><h4>drone-pole-localization</h4><p>tracks a drone from a pole with uwb range and a yolo camera bearing</p></div>
+<div class="card"><h4>gnss_imu_prediction</h4><p>gps + imu kalman filter, predicts the position 1 s ahead; device program and the “ghost” simulation</p></div>
+<div class="card"><h4>drone_localization</h4><p>locates a drone in 3d from external sensors (currently a pole with uwb range and a yolo camera bearing)</p></div>
 </div>
 
 <h2>1. get all three side by side</h2>
 <p>The projects find this repo through the relative submodule URL <code>../gnss-imu-fusion</code>, so keep the three clones in the same parent directory, both locally and on GitHub (same account).</p>
 <pre><code>cd ~
 git clone &lt;url&gt;/gnss-imu-fusion
-git clone --recurse-submodules &lt;url&gt;/gnss-imu-prediction
-git clone --recurse-submodules &lt;url&gt;/drone-pole-localization</code></pre>
+git clone --recurse-submodules &lt;url&gt;/gnss_imu_prediction
+git clone --recurse-submodules &lt;url&gt;/drone_localization</code></pre>
 <div class="note">For clones that live only on your disk, git refuses local (<code>file://</code>) submodules by default. Inside a project run<br><code>git -c protocol.file.allow=always submodule update --init</code></div>
 
 <h2>2. build and test this repo</h2>
@@ -136,11 +136,11 @@ endif()</code></pre>
 
 <h2>6. publish to GitHub</h2>
 <pre><code>gh repo create gnss-imu-fusion --public --source ~/gnss-imu-fusion --push
-gh repo create gnss-imu-prediction --public --source ~/gnss-imu-prediction --push
-gh repo create drone-pole-localization --public --source ~/drone-pole-localization --push</code></pre>
+gh repo create gnss_imu_prediction --public --source ~/gnss_imu_prediction --push
+gh repo create drone_localization --public --source ~/drone_localization --push</code></pre>
 <p>Because the submodule URL is relative, it resolves to the sibling repository on GitHub with no change. GitHub's language bar ignores submodule contents, so each project shows only its own languages.</p>
 
-<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss-imu-prediction and drone-pole-localization</footer>
+<footer>gnss-imu-fusion · part of gnss-imu-fusion, gnss_imu_prediction and drone_localization</footer>
 </main>
 </body>
 </html>

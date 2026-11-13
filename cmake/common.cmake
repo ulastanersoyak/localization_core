@@ -1,5 +1,5 @@
 # Build settings shared by gnss-imu-fusion and the projects that use it
-# (gnss-imu-prediction, drone-pole-localization). Include it right after
+# (gnss_imu_prediction, drone_localization). Include it right after
 # project():
 #
 #   include(external/gnss-imu-fusion/cmake/common.cmake)
