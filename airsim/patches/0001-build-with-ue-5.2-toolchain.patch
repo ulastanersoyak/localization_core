@@ -1,0 +1,47 @@
+diff --git a/build.sh b/build.sh
+index 1de10fa..6d0b5cd 100755
+--- a/build.sh
++++ b/build.sh
+@@ -96,9 +96,29 @@ elif [[ -n "$ue_root" ]]; then
+         exit 1
+     fi
+     echo "Using Unreal Engine's bundled Linux toolchain at $UE_TOOLCHAIN_DIR"
++    # UE 5.2's toolchain (v21, clang 15) does not ship libc++ in its sysroot;
++    # the engine keeps it under Engine/Source/ThirdParty/Unix/LibCxx. Point the
++    # compiler and linker there when it exists (newer UE toolchains carry it in
++    # the sysroot). The flags go into a CMake initial cache file (-C) because
++    # CMAKE_VARS is word-split and cannot hold values with spaces.
++    UE_LIBCXX="$ue_root/Engine/Source/ThirdParty/Unix/LibCxx"
++    UE_CXX_EXTRA=""
++    UE_LD_EXTRA=""
++    if [[ -d "$UE_LIBCXX/include/c++/v1" ]]; then
++        echo "Using Unreal Engine's libc++ at $UE_LIBCXX"
++        UE_CXX_EXTRA="-nostdinc++ -isystem $UE_LIBCXX/include/c++/v1 -isystem $UE_LIBCXX/include"
++        UE_LD_EXTRA="-L$UE_LIBCXX/lib/Unix/x86_64-unknown-linux-gnu"
++    fi
++    UE_CACHE="${TMPDIR:-/tmp}/cosys-airsim-ue-toolchain.cmake"
++    cat > "$UE_CACHE" <<UECACHE
++set(CMAKE_C_FLAGS "--sysroot=$UE_TOOLCHAIN_DIR" CACHE STRING "")
++set(CMAKE_CXX_FLAGS "--sysroot=$UE_TOOLCHAIN_DIR $UE_CXX_EXTRA" CACHE STRING "")
++set(CMAKE_EXE_LINKER_FLAGS "--sysroot=$UE_TOOLCHAIN_DIR $UE_LD_EXTRA" CACHE STRING "")
++set(CMAKE_SHARED_LINKER_FLAGS "--sysroot=$UE_TOOLCHAIN_DIR $UE_LD_EXTRA" CACHE STRING "")
++UECACHE
+     export CC="$UE_TOOLCHAIN_DIR/bin/clang"
+     export CXX="$UE_TOOLCHAIN_DIR/bin/clang++"
+-    CMAKE_VARS="$CMAKE_VARS -DUSING_UE_TOOLCHAIN=ON -DCMAKE_CXX_FLAGS=--sysroot=$UE_TOOLCHAIN_DIR -DCMAKE_C_FLAGS=--sysroot=$UE_TOOLCHAIN_DIR -DCMAKE_EXE_LINKER_FLAGS=--sysroot=$UE_TOOLCHAIN_DIR -DCMAKE_SHARED_LINKER_FLAGS=--sysroot=$UE_TOOLCHAIN_DIR"
++    CMAKE_VARS="$CMAKE_VARS -DUSING_UE_TOOLCHAIN=ON -C $UE_CACHE"
+ else
+     VERSION=$(lsb_release -rs | cut -d. -f1)
+     if $gcc; then
+@@ -133,9 +153,9 @@ if [[ ! -d $build_dir ]]; then
+ fi
+ 
+ # Fix for Unreal/Unity using x86_64 (Rosetta) on Apple Silicon hardware.
+-CMAKE_VARS=
++CMAKE_VARS="${CMAKE_VARS:-}" # keep the UE toolchain flags set above
+ if [ "$(uname)" == "Darwin" ]; then
+-    CMAKE_VARS="-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64"
++    CMAKE_VARS="$CMAKE_VARS -DCMAKE_APPLE_SILICON_PROCESSOR=x86_64"
+ fi
+ 
+ pushd $build_dir  >/dev/null
