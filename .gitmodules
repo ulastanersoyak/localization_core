@@ -1,0 +1,5 @@
+[submodule "external/Cosys-AirSim"]
+	path = external/Cosys-AirSim
+	url = https://github.com/Cosys-Lab/Cosys-AirSim.git
+	branch = 5.2.1
+	shallow = true
