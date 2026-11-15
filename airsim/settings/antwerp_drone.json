@@ -1,0 +1,25 @@
+{
+  "SettingsVersion": 2.0,
+  "SimMode": "Multirotor",
+  "ClockSpeed": 1,
+  "ViewMode": "SpringArmChase",
+  "OriginGeopoint": { "Latitude": 51.2192, "Longitude": 4.4015, "Altitude": 48.3 },
+  "Vehicles": {
+    "drone": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "Sensors": {
+        "imu": { "SensorType": 2, "Enabled": true, "GenerateNoise": true },
+        "gps": { "SensorType": 3, "Enabled": true },
+        "barometer": { "SensorType": 1, "Enabled": true },
+        "magnetometer": { "SensorType": 4, "Enabled": true }
+      },
+      "Cameras": {
+        "front": {
+          "CaptureSettings": [ { "ImageType": 0, "Width": 1280, "Height": 720, "FOV_Degrees": 90 } ],
+          "X": 0.3, "Y": 0, "Z": 0, "Pitch": -10, "Roll": 0, "Yaw": 0
+        }
+      }
+    }
+  }
+}
