@@ -1,0 +1,65 @@
+diff --git a/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp b/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
+index 3ca5bfb..4aea03d 100755
+--- a/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
++++ b/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
+@@ -1210,10 +1210,14 @@ sensor_msgs::msg::Imu AirsimROSWrapper::get_imu_msg_from_airsim(const msr::airli
+     
+     // imu_msg.header.frame_id = "/airsim/odom_local_ned";// todo multiple drones
+     imu_msg.header.stamp = rclcpp::Time(imu_data.time_stamp);
+-    imu_msg.orientation.x = imu_data.orientation.inverse().x();
+-    imu_msg.orientation.y = imu_data.orientation.inverse().y();
+-    imu_msg.orientation.z = imu_data.orientation.inverse().z();
+-    imu_msg.orientation.w = imu_data.orientation.inverse().w();
++    // Body (forward, left, up) to the ROS world frame of this node (x north,
++    // y west, z up), as odom_local: NED body-to-world with y and z flipped.
++    // (The inverse used before is world-to-body in NED: it equals this for a
++    // pure yaw but has the roll sign flipped.)
++    imu_msg.orientation.x = imu_data.orientation.x();
++    imu_msg.orientation.y = -imu_data.orientation.y();
++    imu_msg.orientation.z = -imu_data.orientation.z();
++    imu_msg.orientation.w = imu_data.orientation.w();
+ 
+     // todo radians per second
+     imu_msg.angular_velocity.x = imu_data.angular_velocity.x();
+@@ -1267,13 +1271,16 @@ msr::airlib::GeoPoint AirsimROSWrapper::get_origin_geo_point() const
+ 
+ VelCmd AirsimROSWrapper::get_airlib_world_vel_cmd(const airsim_interfaces::msg::VelCmd& msg) const
+ {
++    // The ROS world frame of this node is x north, y west, z up (odometry
++    // publishes NED as (x, -y, -z)); AirSim takes NED: flip y, z and the
++    // yaw rate (counter-clockwise in ROS, clockwise in NED).
+     VelCmd vel_cmd;
+     vel_cmd.x = msg.twist.linear.x;
+-    vel_cmd.y = msg.twist.linear.y;
+-    vel_cmd.z = msg.twist.linear.z;
++    vel_cmd.y = -msg.twist.linear.y;
++    vel_cmd.z = -msg.twist.linear.z;
+     vel_cmd.drivetrain = msr::airlib::DrivetrainType::MaxDegreeOfFreedom;
+     vel_cmd.yaw_mode.is_rate = true;
+-    vel_cmd.yaw_mode.yaw_or_rate = math_common::rad2deg(msg.twist.angular.z);
++    vel_cmd.yaw_mode.yaw_or_rate = -math_common::rad2deg(msg.twist.angular.z);
+     return vel_cmd;
+ }
+ 
+@@ -1284,13 +1291,17 @@ VelCmd AirsimROSWrapper::get_airlib_body_vel_cmd(const airsim_interfaces::msg::V
+     tf2::Matrix3x3(get_tf2_quat(airlib_quat)).getRPY(roll, pitch, yaw); // ros uses xyzw
+ 
+     // todo do actual body frame?
+-    vel_cmd.x = (msg.twist.linear.x * cos(yaw)) - (msg.twist.linear.y * sin(yaw)); //body frame assuming zero pitch roll
+-    vel_cmd.y = (msg.twist.linear.x * sin(yaw)) + (msg.twist.linear.y * cos(yaw)); //body frame
+-    vel_cmd.z = msg.twist.linear.z;
++    // The command is in the ROS body frame (x forward, y left, z up, yaw rate
++    // counter-clockwise); AirSim takes NED (y right, z down, clockwise):
++    // rotate forward/right by the NED yaw, flip z and the yaw rate.
++    const double right = -msg.twist.linear.y;
++    vel_cmd.x = (msg.twist.linear.x * cos(yaw)) - (right * sin(yaw)); //body frame assuming zero pitch roll
++    vel_cmd.y = (msg.twist.linear.x * sin(yaw)) + (right * cos(yaw)); //body frame
++    vel_cmd.z = -msg.twist.linear.z;
+     vel_cmd.drivetrain = msr::airlib::DrivetrainType::MaxDegreeOfFreedom;
+     vel_cmd.yaw_mode.is_rate = true;
+     // airsim uses degrees
+-    vel_cmd.yaw_mode.yaw_or_rate = math_common::rad2deg(msg.twist.angular.z);
++    vel_cmd.yaw_mode.yaw_or_rate = -math_common::rad2deg(msg.twist.angular.z);
+ 
+     return vel_cmd;
+ }
