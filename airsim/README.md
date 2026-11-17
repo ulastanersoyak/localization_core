@@ -62,7 +62,7 @@ airsim/.venv/bin/evo_traj bag2 RUN_DIR /pole/fused --ref /tf:enu.drone --plot
 | `weather.py` | rain, snow, fog, dust, wind through AirSim's API |
 | `settings/` | AirSim settings: `antwerp_drone`, `antwerp_free`, `positioning_*`, `pole_*` (the pole camera) |
 | `maps/build_maps.py` | generates `/Game/Maps/Field` and `/Game/Maps/Antwerp` |
-| `patches/` | our fixes to Cosys-AirSim: building with Unreal 5.2's toolchain, the ROS node's frame conversions, camera poses and the external camera's gimbal |
+| `patches/` | our fixes to Cosys-AirSim: building with Unreal 5.2's toolchain, the ROS node's frame conversions, camera poses and the external camera's gimbal, and skipping the empty images AirSim sometimes returns (the node crashed on them) |
 | `unreal/` | the Unreal project; `Plugins/AirSim` links into the submodule; `Source/LocalizationSim/DroneKeyboard` flies the drone with W A S D in its window (`-DroneKeyboard`) |
 
 Also in localization_core: `sim/src/ros_sim.hpp` (ROS parameters and tf2
