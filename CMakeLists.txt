@@ -20,5 +20,5 @@ if(LOCALIZATION_CORE_BUILD_TESTS)
   add_subdirectory(test/cpp)
 endif()
 
-# Simulation helpers and the Gazebo accuracy overlay plugin.
+# Header only helpers the projects' simulation programs share.
 add_subdirectory(sim)
