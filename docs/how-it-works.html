@@ -123,6 +123,7 @@ update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)�
 
 <h2>simulation helpers</h2>
 <ul>
+<li><code>airsim/</code>: the simulator both projects run in, <a href="https://github.com/Cosys-Lab/Cosys-AirSim">Cosys-AirSim</a> on Unreal Engine 5.2 over ROS 2: the setup and run scripts, the AirSim settings of each scenario, the map generator, our patches to Cosys-AirSim and the launch file that starts AirSim's ROS 2 node. <code>airsim/README.md</code> explains how a run works.</li>
 <li><code>ros_sim.hpp</code>: what the simulation programs (ROS 2 nodes for Cosys-AirSim) share: read-only ROS parameters with descriptions, tf2 lookups in the <code>enu</code> frame (east, north, up on the ground at AirSim's origin; the truth is the TF <code>enu</code> → <code>drone</code>), and pose messages for the estimates.</li>
 <li>Scoring is not here any more: the programs publish their estimates, the run is recorded, and <code>airsim/evaluate.py</code> scores the recording with evo (mean, RMS, median, p95, max). p95 is the error that 95 % of samples stay under: it shows the bad cases without being set by one outlier. See <code>airsim/README.md</code>.</li>
 </ul>

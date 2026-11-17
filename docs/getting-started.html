@@ -57,7 +57,7 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <p class="lede">Build the shared library, use it from a project, and keep the three repositories in step.</p>
 <nav class="pages"><a href="getting-started.html" class="here">getting started</a><a href="how-it-works.html">how it works</a><a href="https://github.com/ulastanersoyak/localization_core">source on github</a></nav>
 </header>
-<p>This repository is the common base of two projects. It holds the sensor parsers, coordinate conversion, IMU driver, matrix and Kalman filter core, and the Gazebo helpers that both projects use. The projects pull it in as a git submodule.</p>
+<p>This repository is the common base of two projects. It holds the sensor parsers, coordinate conversion, IMU driver, matrix and Kalman filter core, and the simulator side both projects use (<code>airsim/</code>: Cosys-AirSim on Unreal Engine over ROS 2, with its settings, maps and scripts). The projects pull it in as a git submodule.</p>
 
 <div class="cards">
 <div class="card"><h4>localization_core</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, the airsim simulator side</p></div>
