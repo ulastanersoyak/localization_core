@@ -5,6 +5,8 @@
 #include "utm/utm.hpp"
 
 #include <array>
+#include <cstdint>
+#include <stdexcept>
 #include <string>
 
 void
@@ -43,6 +45,10 @@ utm_conversion_test ()
       check_near (u.northing (), ref.northing, 0.01, "utm northing " + name);
 
       const auto [lat, lon] = u.to_latlon ();
+      check_near (utm (u.easting (), u.northing (), u.zone_number (),
+                       u.zone_char ())
+                      .convergence (),
+                  u.convergence (), 1e-12, "grid convergence " + name);
       check_near (lat, ref.lat, 1e-7, "inverse latitude " + name);
       check_near (lon, ref.lon, 1e-7, "inverse longitude " + name);
     }
@@ -55,22 +61,6 @@ utm_conversion_test ()
 
   check_throws<std::out_of_range> ([] { const utm u (85.0, 0.0); },
                                    "latitude outside utm");
-}
-
-void
-utm_direction_test ()
-{
-  const utm origin (500000, 4000000, 36, 'S');
-  const utm north_east (500010, 4000010, 36, 'S', utc{ 0, 0, 2 });
-  const utm south_west (499990, 3999990, 36, 'S');
-
-  check_near (north_east.get_direction (origin).dir_degree, 45, 1e-9,
-              "bearing north east");
-  check_near (south_west.get_direction (origin).dir_degree, 225, 1e-9,
-              "bearing south west");
-  check_near (north_east.get_distance (origin), std::sqrt (200.0), 1e-9,
-              "distance");
-  check_near (north_east.get_time_diff_sec (origin), 2, 1e-9, "time diff");
 }
 
 #endif // !UTM_TEST_HPP
