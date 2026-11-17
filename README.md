@@ -7,7 +7,7 @@ git submodule:
 
 | repository | what |
 |---|---|
-| [gnss_imu_prediction](https://github.com/ulastanersoyak/gnss_imu_prediction) | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the gazebo "ghost" simulation and the device program |
+| [gnss_imu_prediction](https://github.com/ulastanersoyak/gnss_imu_prediction) | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the "ghost" simulation (cosys-airsim) and the device program |
 | [drone_localization](https://github.com/ulastanersoyak/drone_localization) | locates a drone in 3d from external sensors; currently a pole with a uwb anchor and a pan-tilt camera running a yolo detector, optionally fused with the drone's imu and gps |
 
 guides: [getting started](https://ulastanersoyak.github.io/localization_core/getting-started.html) ·
@@ -31,11 +31,10 @@ mti-630 ─── xbus (115200 baud) ─▶ mtdata2 parser ───────
 | `gps` | `includes/gps`, `src/gps` | max-m10s reader: rmc + gga of the same epoch → `gps_fix` (needs boost) |
 | `mti_630` | `includes/mti_630`, `src/mti_630` | mti-630 reader (needs boost) |
 | `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: fixed size `matrix`, generic `kalman_filter`, `gps_fix`/`sensor_event`, thread safe `queue` |
-| `localization_core_sim` | `sim/src` | simulation helpers: gazebo ⇄ lat/lon local frame, error statistics |
-| `AccuracyOverlay` | `sim/gui_plugin` | gazebo gui plugin drawing the live accuracy, built into `<build>/gz_gui_plugins` |
+| `localization_core_sim` | `sim/src` | header only, for the simulation programs (ros 2): ros parameters and tf2 lookups in the `enu` frame |
 | `localization_core_test_support` | `test/cpp/check.hpp` | the tiny check helpers the tests use |
 
-also here: `sim/gui.config` (the gazebo gui layout both simulations use),
+also here: `airsim/` (the simulator side, see `airsim/README.md`),
 `cmake/common.cmake` (c++ standard and warnings for all three repositories),
 `test/python/` (serial capture script and a recorded nmea log), `docs/`
 (datasheets and papers, `uart.sh` for enabling the uarts on the pi).

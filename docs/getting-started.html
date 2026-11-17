@@ -60,7 +60,7 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <p>This repository is the common base of two projects. It holds the sensor parsers, coordinate conversion, IMU driver, matrix and Kalman filter core, and the Gazebo helpers that both projects use. The projects pull it in as a git submodule.</p>
 
 <div class="cards">
-<div class="card"><h4>localization_core</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, gazebo overlay</p></div>
+<div class="card"><h4>localization_core</h4><p>this repo: nmea, utm, xbus/mti-630, serial port, gps reader, matrix, kalman_filter, sim helpers, the airsim simulator side</p></div>
 <div class="card"><h4>gnss_imu_prediction</h4><p>gps + imu kalman filter, predicts the position 1 s ahead; device program and the “ghost” simulation</p></div>
 <div class="card"><h4>drone_localization</h4><p>locates a drone in 3d from external sensors (currently a pole with uwb range and a yolo camera bearing)</p></div>
 </div>
@@ -86,7 +86,6 @@ cmake --build build -j</code></pre></li>
 # or directly, to see every case:
 ./build/test/cpp/tests</code></pre>
 <p>Expect <code>[ OK ]</code> for the nmea, rmc, utm, xbus and matrix tests, plus <code>gps_altitude_pairing</code> when Boost was found.</p></li>
-<li><b>Optional: the Gazebo overlay plugin.</b> When Gazebo Harmonic (gz-gui8, gz-transport13, gz-msgs10) and Qt5 are found, <code>AccuracyOverlay</code> is built into <code>build/gz_gui_plugins/</code>. The projects' run scripts point <code>GZ_GUI_PLUGIN_PATH</code> there for you.</li>
 </ol>
 
 <h2>3. use it from a project</h2>
@@ -112,9 +111,8 @@ endif()</code></pre>
 <tr><td><code>xbus</code></td><td>xbus framing, mtdata2 → <code>Xbus</code> sample, acceleration in ENU</td><td></td></tr>
 <tr><td><code>localization_core_headers</code></td><td><code>matrix</code>, <code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>sensor_event</code>, <code>queue</code></td><td></td></tr>
 <tr><td><code>serial_port</code>, <code>gps</code>, <code>mti_630</code></td><td>live readers for the max-m10s and the mti-630</td><td>boost</td></tr>
-<tr><td><code>localization_core_sim</code></td><td><code>local_frame.hpp</code>, <code>error_stats.hpp</code></td><td></td></tr>
+<tr><td><code>localization_core_sim</code></td><td><code>ros_sim.hpp</code>: ROS parameters, tf2 lookups in the <code>enu</code> frame</td><td>ROS 2, tf2, Eigen</td></tr>
 <tr><td><code>localization_core_test_support</code></td><td><code>check.hpp</code></td><td></td></tr>
-<tr><td><code>AccuracyOverlay</code></td><td>gazebo gui plugin, plus <code>sim/gui.config</code></td><td>gazebo, qt5</td></tr>
 </table>
 <p>The tests here only build when this is the top-level project. Add <code>-DLOCALIZATION_CORE_BUILD_TESTS=ON</code> to build them from a project too.</p>
 

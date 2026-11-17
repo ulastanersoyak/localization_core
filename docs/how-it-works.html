@@ -123,9 +123,8 @@ update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)�
 
 <h2>simulation helpers</h2>
 <ul>
-<li><code>local_frame.hpp</code>: WGS84 lat/lon/height ⇄ the local ENU tangent plane that a Gazebo world with <code>&lt;spherical_coordinates&gt;</code> uses, to compare an estimate with Gazebo's ground truth.</li>
-<li><code>error_stats.hpp</code>: running mean, RMS, max and percentiles of an error. p95 is the error that 95 % of samples stay under: it shows the bad cases without being set by one outlier.</li>
-<li><code>AccuracyOverlay</code>: a Gazebo GUI plugin that subscribes to <code>/positioning/overlay</code> and draws the live accuracy text over the 3D view. <code>sim/gui.config</code> is the window layout both simulations start with.</li>
+<li><code>ros_sim.hpp</code>: what the simulation programs (ROS 2 nodes for Cosys-AirSim) share: read-only ROS parameters with descriptions, tf2 lookups in the <code>enu</code> frame (east, north, up on the ground at AirSim's origin; the truth is the TF <code>enu</code> → <code>drone</code>), and pose messages for the estimates.</li>
+<li>Scoring is not here any more: the programs publish their estimates, the run is recorded, and <code>airsim/evaluate.py</code> scores the recording with evo (mean, RMS, median, p95, max). p95 is the error that 95 % of samples stay under: it shows the bad cases without being set by one outlier. See <code>airsim/README.md</code>.</li>
 </ul>
 
 <footer>localization_core · part of localization_core, gnss_imu_prediction and drone_localization</footer>
