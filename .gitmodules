@@ -3,3 +3,7 @@
 	url = https://github.com/Cosys-Lab/Cosys-AirSim.git
 	branch = 5.2.1
 	shallow = true
+	# Not checked out by recursive clones (it is large, and it has a nested
+	# submodule without a URL that makes recursive checkouts fail);
+	# airsim/setup.sh checks it out.
+	update = none

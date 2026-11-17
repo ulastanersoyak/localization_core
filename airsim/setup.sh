@@ -24,7 +24,8 @@ box=${LOCSIM_ROS_BOX:-ros2}
 step () { echo; echo "=== $*"; }
 
 step "1. Cosys-AirSim submodule and patches"
-git -C "$core" submodule update --init --depth 1 external/Cosys-AirSim
+# --checkout: .gitmodules says update = none, so recursive clones skip it.
+git -C "$core" submodule update --init --checkout --depth 1 external/Cosys-AirSim
 for patch in "$here"/patches/*.patch; do
   if git -C "$airsim" apply --reverse --check "$patch" 2>/dev/null; then
     echo "already applied: $(basename "$patch")"
