@@ -1,13 +1,13 @@
 # localization_core
 
-the common parts of two positioning projects for a raspberry pi 4 carrying a
-u-blox max-m10s gnss receiver and an xsens mti-630 imu, and the glue between
-them. the projects live in their own repositories and pull this one in as a
+the common parts of two positioning projects that run in simulation
+(cosys-airsim on unreal engine 5.2, ros 2 jazzy), and the simulator side they
+share. the projects live in their own repositories and pull this one in as a
 git submodule:
 
 | repository | what |
 |---|---|
-| [gnss_imu_prediction](https://github.com/ulastanersoyak/gnss_imu_prediction) | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the "ghost" simulation (cosys-airsim) and the device program |
+| [gnss_imu_prediction](https://github.com/ulastanersoyak/gnss_imu_prediction) | gps + imu kalman filter that estimates the position and predicts where the vehicle will be one second later, with the "ghost" simulation |
 | [drone_localization](https://github.com/ulastanersoyak/drone_localization) | locates a drone in 3d from external sensors; currently a pole with a uwb anchor and a pan-tilt camera running a yolo detector, optionally fused with the drone's imu and gps |
 
 guides: [getting started](https://ulastanersoyak.github.io/localization_core/getting-started.html) ·
@@ -15,40 +15,31 @@ guides: [getting started](https://ulastanersoyak.github.io/localization_core/get
 
 ## what is in here
 
-```
-max-m10s ── nmea (9600 baud) ──▶ rmc/gga parser ──▶ utm ──┐
-                                                          ├──▶ queue ──▶ (the projects' filters)
-mti-630 ─── xbus (115200 baud) ─▶ mtdata2 parser ─────────┘
-```
-
 | target | path | what |
 |---|---|---|
-| `time_and_location` | `includes/time_and_location`, `src/time_and_location` | nmea field parsers: utc, date, coordinates |
-| `rmc` | `includes/rmc`, `src/rmc` | checksum verified `$..rmc` sentences |
-| `utm` | `includes/utm`, `src/utm` | lat/lon ⇄ utm, grid convergence |
-| `xbus` | `includes/mti_630`, `src/mti_630` | xbus framing and mtdata2 parsing, acceleration rotated into east/north/up |
-| `serial_port` | `includes/utility`, `src/utility` | boost.asio serial port (needs boost) |
-| `gps` | `includes/gps`, `src/gps` | max-m10s reader: rmc + gga of the same epoch → `gps_fix` (needs boost) |
-| `mti_630` | `includes/mti_630`, `src/mti_630` | mti-630 reader (needs boost) |
-| `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: fixed size `matrix`, generic `kalman_filter`, `gps_fix`/`sensor_event`, thread safe `queue` |
+| `utm` | `includes/utm`, `src/utm` | lat/lon ⇄ utm and grid convergence, converted by geographiclib |
+| `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: the generic `kalman_filter` (eigen), the measurement types `gps_fix` and `imu_sample`, thread safe `queue` |
 | `localization_core_sim` | `sim/src` | header only, for the simulation programs (ros 2): ros parameters and tf2 lookups in the `enu` frame |
 | `localization_core_test_support` | `test/cpp/check.hpp` | the tiny check helpers the tests use |
 
 also here: `airsim/` (the simulator side, see `airsim/README.md`),
 `cmake/common.cmake` (c++ standard and warnings for all three repositories),
-`test/python/` (serial capture script and a recorded nmea log), `docs/`
-(datasheets and papers, `uart.sh` for enabling the uarts on the pi).
+`sim/tools/` (the antwerp building tiles), `docs/` (the guides and two utm
+papers).
 
 ## building and testing
 
-needs cmake ≥ 3.22 and a c++20 compiler. boost (asio, headers only) is only
-needed for the serial port parts; without it everything else still builds.
+needs cmake ≥ 3.22, a c++20 compiler, eigen and geographiclib:
 
 ```
+sudo dnf install cmake gcc-c++ eigen3-devel GeographicLib-devel      # fedora
+sudo apt install cmake g++ libeigen3-dev libgeographiclib-dev       # ubuntu
 cmake -S . -B build
 cmake --build build
 ctest --test-dir build
 ```
+
+the `ros2` distrobox that `airsim/setup.sh` uses has both.
 
 ## using it from another repository
 
@@ -61,10 +52,7 @@ project(my_project LANGUAGES CXX)
 include(external/localization_core/cmake/common.cmake)
 add_subdirectory(external/localization_core)
 
-target_link_libraries(my_target PRIVATE utm xbus localization_core_headers)
-if(TARGET gps) # only with boost
-  target_link_libraries(my_device_program PRIVATE gps mti_630)
-endif()
+target_link_libraries(my_target PRIVATE utm localization_core_headers)
 ```
 
 the unit tests here are only built when this is the top level project
@@ -85,6 +73,7 @@ project's submodule: `git -C external/localization_core pull` then committing
 ## history
 
 this repository started as a 2d gps + imu position predictor for a wheeled
-robot, grew into a 3d drone filter and then a drone localization project. the
-full history up to the split is kept here (branch `pre-split`); the two
-projects were split off with the history of their own files.
+robot on a raspberry pi 4 (u-blox max-m10s, xsens mti-630), grew into a 3d
+drone filter and then a drone localization project, and is now simulation
+only. the full history is kept here; the two projects were split off with the
+history of their own files.

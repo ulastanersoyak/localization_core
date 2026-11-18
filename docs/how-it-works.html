@@ -54,10 +54,10 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <header class="top">
 <div class="repo">localization_core</div>
 <h1>How it works</h1>
-<p class="lede">From NMEA text and Xbus bytes to typed measurements in metres, and the Kalman core both filters share.</p>
+<p class="lede">The measurement types, the UTM conversion and the Kalman core both filters share, and the simulator they run in.</p>
 <nav class="pages"><a href="getting-started.html">getting started</a><a href="how-it-works.html" class="here">how it works</a><a href="https://github.com/ulastanersoyak/localization_core">source on github</a></nav>
 </header>
-<p>Both projects start from the same raw bytes: NMEA text from a u-blox MAX-M10S at 9600 baud, and binary Xbus packets from an Xsens MTi-630 at 115200 baud. This repo turns those bytes into typed, timestamped measurements and provides the linear-algebra and filter core that each project builds its estimator on.</p>
+<p>Both projects run in simulation: a drone in Cosys-AirSim, whose ROS 2 node publishes its GPS and IMU. Each project's simulation program adds sensor errors and turns the messages into the measurement types defined here, <code>gps_fix</code> and <code>imu_sample</code>, in metres in a flat frame. This repo also provides the filter core each project builds its estimator on. The maths comes from maintained libraries: GeographicLib for UTM, Eigen for the linear algebra.</p>
 
 <figure>
 <svg viewBox="0 0 820 250" role="img" aria-label="data flow from sensors to the projects">
@@ -72,54 +72,38 @@ footer{margin-top:60px;color:var(--muted);font-size:13px;border-top:1px solid va
 <path d="M130 55H170" marker-end="url(#a)"/><path d="M310 55H345" marker-end="url(#a)"/><path d="M130 185H170" marker-end="url(#a)"/><path d="M460 55 Q485 55 500 110" marker-end="url(#a)"/><path d="M460 185 Q485 185 500 130" marker-end="url(#a)"/><path d="M605 115 Q630 100 646 70" marker-end="url(#a)"/><path d="M605 125 Q630 140 646 170" marker-end="url(#a)"/>
 </g>
 <g font-size="13" fill="var(--fg)" text-anchor="middle">
-<text x="70" y="52">max-m10s</text><text x="70" y="69" fill="var(--muted)" font-size="11">nmea 1 hz</text>
-<text x="70" y="182">mti-630</text><text x="70" y="199" fill="var(--muted)" font-size="11">xbus 100 hz</text>
-<text x="242" y="52">rmc + gga</text><text x="242" y="69" fill="var(--muted)" font-size="11">checksum, pairing</text>
-<text x="405" y="52">utm</text><text x="405" y="69" fill="var(--muted)" font-size="11">metres</text>
-<text x="317" y="182">xbus framing → mtdata2</text><text x="317" y="199" fill="var(--muted)" font-size="11">quaternion, acc → ENU, −g</text>
-<text x="555" y="117">queue</text><text x="555" y="134" fill="var(--muted)" font-size="11">sensor_event</text>
+<text x="70" y="52">airsim gps</text><text x="70" y="69" fill="var(--muted)" font-size="11">navsat fix 1 hz</text>
+<text x="70" y="182">airsim imu</text><text x="70" y="199" fill="var(--muted)" font-size="11">100 hz</text>
+<text x="242" y="52">error model</text><text x="242" y="69" fill="var(--muted)" font-size="11">noise, drift</text>
+<text x="405" y="52">utm</text><text x="405" y="69" fill="var(--muted)" font-size="11">geographiclib</text>
+<text x="317" y="182">imu_sample (+ errors)</text><text x="317" y="199" fill="var(--muted)" font-size="11">orientation · force → ENU, −g</text>
+<text x="555" y="117">queue</text><text x="555" y="134" fill="var(--muted)" font-size="11">ros → filter</text>
 <text x="730" y="62">prediction</text><text x="730" y="79" fill="var(--muted)" font-size="11">position_estimator</text>
 <text x="730" y="172">drone localization</text><text x="730" y="189" fill="var(--muted)" font-size="11">pole_estimator</text>
 </g>
 </svg>
-<figcaption>Everything left of the queue lives here. The two filters on the right live in the projects and use <code>kalman_filter&lt;N&gt;</code> from here.</figcaption>
+<figcaption>The error models live in the projects' simulation programs; the types, <code>utm</code> and the queue live here. The two filters on the right live in the projects and use <code>kalman_filter&lt;N&gt;</code> from here.</figcaption>
 </figure>
 
-<h2>gps: nmea sentences</h2>
-<p>The receiver prints one line per sentence, ending in <code>*hh</code>, an XOR checksum of every character between <code>$</code> and <code>*</code>. Lines that fail the checksum are dropped. Two sentences are used:</p>
-<pre><code>$GNRMC,072223.00,A,3958.59211,N,03244.28744,E,0.012,,191024,,,A*6C
-       time      ok lat         lon         knots course date
-$GNGGA,072223.00,3958.59211,N,03244.28744,E,1,05,2.30,894.2,M,...
-       time                                  sats hdop altitude</code></pre>
+<h2>measurements</h2>
 <ul>
-<li><b>Coordinates</b> are <code>ddmm.mmmm</code> (latitude) and <code>dddmm.mmmm</code> (longitude), so degrees = <code>dd + mm.mmmm/60</code>, negated for S and W. <code>time_and_location</code> validates every field. A malformed one throws instead of yielding a silently wrong position.</li>
-<li><b>RMC</b> gives the position, speed over ground (knots → m/s) and true course. Status <code>V</code> means no fix.</li>
-<li><b>GGA</b> gives the altitude and the HDOP, which sets how far each fix is trusted (σ ≈ HDOP × UERE).</li>
-<li><b>Epoch pairing.</b> Receivers send the GGA right after the RMC of the same second. <code>gps::process_sentence</code> holds a valid RMC until the GGA with the same timestamp arrives and returns one <code>gps_fix</code> with both. Without the pairing, a climbing vehicle would get last second's altitude.</li>
+<li><b><code>gps_fix</code></b>: time, position (<code>utm</code>), altitude, speed, true course and HDOP, what a receiver reports. The HDOP sets how far each fix is trusted (σ ≈ HDOP × UERE).</li>
+<li><b><code>imu_sample</code></b>: time, specific force in the sensor frame and the orientation (sensor to east/north/up), what an AHRS reports. <code>acceleration_enu()</code> rotates the force with Eigen's quaternion and subtracts g. At rest an accelerometer reads +g upward, which is why the subtraction is needed. Any error in g becomes a constant vertical bias, so the value is a parameter.</li>
 </ul>
 
 <h2>utm: degrees to metres</h2>
-<p>A filter wants a flat Cartesian frame. UTM splits the earth into 60 six-degree zones and projects each with a transverse Mercator. Within a zone, easting and northing are metres with a small, known scale error. <code>utm</code> implements the forward and inverse series (the NGS/USGS formulas in <code>docs/</code>) and the <b>grid convergence</b>: the angle between grid north and true north. Course and IMU headings are relative to true north, so the filters rotate them by the convergence before mixing them with UTM positions.</p>
-
-<h2>imu: xbus packets</h2>
-<pre><code>FA  FF  36  len  [ data … ]  checksum
-preamble bus mid      mtdata2 items   sum of bytes after FA ≡ 0 (mod 256)</code></pre>
-<ul>
-<li><b>Framing</b> (<code>xbus_packet</code>) is a byte-by-byte state machine. If a checksum fails, it rescans the buffered bytes from the next <code>FA</code>, so a real packet hidden inside a corrupted one is not lost.</li>
-<li><b>MTData2</b> is a list of <code>[data id (2 B), size (1 B), payload]</code> items, big-endian floats. The parser reads the sample time (10 kHz ticks), quaternion, acceleration, free acceleration, rate of turn, Euler angles and status. The low bits of the data id give the output frame (ENU, NED, NWU).</li>
-<li><b>Acceleration in ENU.</b> <code>Xbus::accelerationENU()</code> prefers the device's free acceleration (gravity already removed). Otherwise it rotates the raw specific force by the orientation quaternion into the local frame and subtracts g. At rest an accelerometer reads +g upward, which is why the subtraction is needed. Any error in g becomes a constant vertical bias, so the value is a parameter.</li>
-</ul>
+<p>A filter wants a flat Cartesian frame. UTM splits the earth into 60 six-degree zones and projects each with a transverse Mercator. Within a zone, easting and northing are metres with a small, known scale error. <code>utm</code> converts with GeographicLib (<code>UTMUPS</code>, the standard zones including the Norway and Svalbard exceptions) and keeps the <b>grid convergence</b>: the angle between grid north and true north. Course and IMU headings are relative to true north, so the filters rotate them by the convergence before mixing them with UTM positions. The tests check the conversion against PROJ.</p>
 
 <h2>the filter core</h2>
-<p><code>matrix&lt;R, C&gt;</code> is a fixed-size, stack-allocated matrix with sizes checked at compile time, and <code>inverse()</code> is Gauss–Jordan with partial pivoting. <code>kalman_filter&lt;N&gt;</code> is the generic linear Kalman filter both projects use:</p>
+<p><code>kalman_filter&lt;N&gt;</code> is the generic linear Kalman filter both projects use, on Eigen's fixed-size matrices (sizes checked at compile time, nothing allocated):</p>
 <div class="math">predict:  x ← F x + u              P ← F P Fᵀ + Q
 innovate: y = z − H x              S = H P Hᵀ + R
 gate:     NIS = yᵀ S⁻¹ y           (χ² with dim z dof; reject above the 99.9 % value)
 update:   K = P Hᵀ S⁻¹    x ← x + K y    P ← (I − K H) P (I − K H)ᵀ + K R Kᵀ</div>
-<p>The last line is the Joseph form. It costs a little more than <code>(I − K H) P</code> but keeps P symmetric and positive definite despite rounding. A filter that runs at 100 Hz for hours needs that.</p>
+<p>S is at most 3 × 3, which Eigen inverts in closed form. The last line is the Joseph form. It costs a little more than <code>(I − K H) P</code> but keeps P symmetric and positive definite despite rounding. A filter that runs at 100 Hz for hours needs that.</p>
 
 <h2>threads and events</h2>
-<p>Each serial port has a reader thread. Readers push a <code>sensor_event</code> (<code>gps_fix</code>, an <code>Xbus</code> sample, or <code>end_of_stream</code>) into one thread-safe <code>queue</code>. A single consumer pops events in arrival order and owns the filter, so the filter needs no locks.</p>
+<p>The simulation programs' ROS callbacks only convert messages and push them into a thread-safe <code>queue</code>. A single consumer pops them in time order and owns the filter, so the filter needs no locks.</p>
 
 <h2>simulation helpers</h2>
 <ul>
