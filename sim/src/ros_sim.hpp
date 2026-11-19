@@ -20,6 +20,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <cmath>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -43,6 +44,20 @@ pose_msg (const rclcpp::Time &stamp, const Eigen::Vector3d &position,
   msg.pose.position.z = position.z ();
   msg.pose.orientation = tf2::toMsg (orientation);
   return msg;
+}
+
+// A level orientation along the horizontal part of a velocity, for the
+// estimates' pose messages: rviz2 draws them as arrows pointing where the
+// drone is going. Identity (east) when it is slower than 0.3 m/s.
+inline Eigen::Quaterniond
+heading_of (const Eigen::Vector3d &velocity)
+{
+  if (std::hypot (velocity.x (), velocity.y ()) < 0.3)
+    {
+      return Eigen::Quaterniond::Identity ();
+    }
+  return Eigen::Quaterniond (
+      Eigen::AngleAxisd (std::atan2 (velocity.y (), velocity.x ()), Eigen::Vector3d::UnitZ ()));
 }
 
 // The TF tree, queried in the enu frame. Thread safe (tf2's buffer is).
