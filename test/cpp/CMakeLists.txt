@@ -1,5 +1,6 @@
-add_executable(tests test.cpp)
-# check.hpp's directory (test/cpp) has to come after includes/: the test
-# headers mirror the library paths (utm/utm.hpp, kalman/...).
-target_link_libraries(tests PRIVATE utm localization_core_test_support)
-add_test(NAME tests COMMAND tests)
+# GoogleTest: each TEST is its own ctest test (gtest_discover_tests).
+find_package(GTest REQUIRED)
+include(GoogleTest)
+add_executable(tests utm_test.cpp kalman_test.cpp)
+target_link_libraries(tests PRIVATE utm localization_core_headers GTest::gtest_main)
+gtest_discover_tests(tests)
