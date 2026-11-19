@@ -15,6 +15,10 @@ Arguments:
     record      a rosbag2 directory to record into (empty: no recording);
                 evaluate.py scores the programs' estimates from it
     record_topics  topics to record besides /tf and /tf_static (spaces)
+    autopilot   true: fly the figure eight (autopilot.py) over /cmd_vel
+    autopilot_params  its ROS parameters, NAME:=VALUE separated by spaces
+                (names it does not declare are ignored, so the projects pass
+                all of their program's parameters)
 
 Frames: AirSim's ROS node publishes TF world -> drone/odom_local -> drone,
 world being x north, y west, z up at the PlayerStart. This file adds the
@@ -65,6 +69,14 @@ def recorder(context):
                            name="record", output={"stdout": "log", "stderr": "log"})]
 
 
+def autopilot(context):
+    if LaunchConfiguration("autopilot").perform(context) != "true":
+        return []
+    overrides = [a for p in shlex.split(LaunchConfiguration("autopilot_params").perform(context)) for a in ("-p", p)]
+    return [Node(executable=os.path.join(HERE, "autopilot.py"), name="autopilot", ros_arguments=overrides,
+                 output={"stdout": "log", "stderr": "log"})]
+
+
 def stop_without_airsim(event, context):
     # AirSim's node (from its own launch file) died: without it the programs
     # would wait for data forever.
@@ -81,6 +93,8 @@ def generate_launch_description():
         DeclareLaunchArgument("spawn_height", default_value="1.5"),
         DeclareLaunchArgument("record", default_value=""),
         DeclareLaunchArgument("record_topics", default_value=""),
+        DeclareLaunchArgument("autopilot", default_value="false"),
+        DeclareLaunchArgument("autopilot_params", default_value=""),
 
         # enu -> world (see the docstring): world's x axis (north) is enu's y.
         Node(package="tf2_ros", executable="static_transform_publisher", name="enu_frame",
@@ -110,5 +124,6 @@ def generate_launch_description():
 
         OpaqueFunction(function=weather),
         OpaqueFunction(function=recorder),
+        OpaqueFunction(function=autopilot),
         RegisterEventHandler(OnProcessExit(on_exit=stop_without_airsim)),
     ])
