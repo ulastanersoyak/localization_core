@@ -75,17 +75,17 @@ git clone --recurse-submodules &lt;url&gt;/drone_localization</code></pre>
 
 <h2>2. build and test this repo</h2>
 <ol class="steps">
-<li><b>Prerequisites.</b> CMake ≥ 3.22, a C++20 compiler (GCC 13+ or Clang 16+), Eigen and GeographicLib. The <code>ros2</code> distrobox that <code>airsim/setup.sh</code> sets up has all of them.
-<pre><code>sudo dnf install cmake gcc-c++ eigen3-devel GeographicLib-devel    # fedora
-sudo apt install cmake g++ libeigen3-dev libgeographiclib-dev     # ubuntu</code></pre></li>
+<li><b>Prerequisites.</b> CMake ≥ 3.22, a C++20 compiler (GCC 13+ or Clang 16+), Eigen, GeographicLib and GoogleTest. The <code>ros2</code> distrobox that <code>airsim/setup.sh</code> sets up has all of them.
+<pre><code>sudo dnf install cmake gcc-c++ eigen3-devel GeographicLib-devel gtest-devel    # fedora
+sudo apt install cmake g++ libeigen3-dev libgeographiclib-dev libgtest-dev    # ubuntu</code></pre></li>
 <li><b>Configure and build.</b>
 <pre><code>cmake -S . -B build
 cmake --build build -j</code></pre></li>
 <li><b>Run the tests.</b>
 <pre><code>ctest --test-dir build --output-on-failure
-# or directly, to see every case:
+# or directly, GoogleTest's own output (--gtest_filter picks tests):
 ./build/test/cpp/tests</code></pre>
-<p>Expect <code>[ OK ]</code> for <code>utm_conversion</code>, <code>kalman_filter</code> and <code>imu_sample</code>.</p></li>
+<p>Expect <code>[       OK ]</code> for <code>utm.conversion</code>, <code>kalman.filter</code> and <code>kalman.imu_sample</code>.</p></li>
 </ol>
 
 <h2>3. use it from a project</h2>
@@ -103,8 +103,7 @@ target_link_libraries(my_tool PRIVATE utm localization_core_headers)</code></pre
 <tr><th>target</th><th>gives you</th><th>needs</th></tr>
 <tr><td><code>utm</code></td><td>lat/lon ⇄ utm, grid convergence</td><td>GeographicLib</td></tr>
 <tr><td><code>localization_core_headers</code></td><td><code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>imu_sample</code>, <code>queue</code></td><td>Eigen</td></tr>
-<tr><td><code>localization_core_sim</code></td><td><code>ros_sim.hpp</code>: ROS parameters, tf2 lookups in the <code>enu</code> frame</td><td>ROS 2, tf2, Eigen</td></tr>
-<tr><td><code>localization_core_test_support</code></td><td><code>check.hpp</code></td><td></td></tr>
+<tr><td><code>localization_core_sim</code></td><td><code>ros_sim.hpp</code>: tf2 lookups in the <code>enu</code> frame, pose messages</td><td>ROS 2, tf2, Eigen</td></tr>
 </table>
 <p>The tests here only build when this is the top-level project. Add <code>-DLOCALIZATION_CORE_BUILD_TESTS=ON</code> to build them from a project too.</p>
 

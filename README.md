@@ -19,8 +19,7 @@ guides: [getting started](https://ulastanersoyak.github.io/localization_core/get
 |---|---|---|
 | `utm` | `includes/utm`, `src/utm` | lat/lon ⇄ utm and grid convergence, converted by geographiclib |
 | `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: the generic `kalman_filter` (eigen), the measurement types `gps_fix` and `imu_sample`, thread safe `queue` |
-| `localization_core_sim` | `sim/src` | header only, for the simulation programs (ros 2): ros parameters and tf2 lookups in the `enu` frame |
-| `localization_core_test_support` | `test/cpp/check.hpp` | the tiny check helpers the tests use |
+| `localization_core_sim` | `sim/src` | header only, for the simulation programs (ros 2): tf2 lookups in the `enu` frame and pose messages |
 
 also here: `airsim/` (the simulator side, see `airsim/README.md`),
 `cmake/common.cmake` (c++ standard and warnings for all three repositories),
@@ -29,17 +28,18 @@ papers).
 
 ## building and testing
 
-needs cmake ≥ 3.22, a c++20 compiler, eigen and geographiclib:
+needs cmake ≥ 3.22, a c++20 compiler, eigen, geographiclib and googletest
+(the tests):
 
 ```
-sudo dnf install cmake gcc-c++ eigen3-devel GeographicLib-devel      # fedora
-sudo apt install cmake g++ libeigen3-dev libgeographiclib-dev       # ubuntu
+sudo dnf install cmake gcc-c++ eigen3-devel GeographicLib-devel gtest-devel      # fedora
+sudo apt install cmake g++ libeigen3-dev libgeographiclib-dev libgtest-dev      # ubuntu
 cmake -S . -B build
 cmake --build build
 ctest --test-dir build
 ```
 
-the `ros2` distrobox that `airsim/setup.sh` uses has both.
+the `ros2` distrobox that `airsim/setup.sh` uses has all of them.
 
 ## using it from another repository
 

@@ -38,8 +38,14 @@ include. The program's exit ends the launch; `run.sh` then stops Unreal.
   `drone`.
 * **Time.** AirSim's stamps are on its own clock, which trails the wall
   clock by a few seconds: never mix them with `time.time()` or `now()`.
-* **Options** of the projects' scripts (`--duration 60`) become the
-  programs' ROS parameters (`duration:=60`, `params.sh`).
+* **Options** of the projects' scripts (`--duration 60`) become ROS
+  parameters (`duration:=60`, `params.sh`). The programs define theirs with
+  generate_parameter_library; `launch/ros_params.py` gives the doubles
+  among them a decimal point, which its typed declarations need.
+* **Flying.** `autopilot.py` flies the projects' figure eight over
+  `/cmd_vel` (the launch file's `autopilot:=true`), on the true pose; the
+  programs only measure and estimate. `keyboard.sh` replaces it for manual
+  flying.
 * **Scoring.** Each project run is recorded (rosbag2, `/tf` included) and
   scored at the end by `evaluate.py` with evo; evo's tools plot the same
   recording (in the box, ROS 2 sourced):
@@ -55,7 +61,9 @@ airsim/.venv/bin/evo_traj bag2 RUN_DIR /pole/fused --ref /tf:enu.drone --plot
 |---|---|
 | `setup.sh` | applies `patches/`, builds AirLib with Unreal's toolchain, builds the ROS 2 node in the `ros2` distrobox, creates `.venv` (AirSim client, pyproj, evo), city tiles, Unreal project and maps (delete `unreal/Content/Maps` to regenerate them) |
 | `run.sh` | Unreal with a map and settings, then one ROS 2 launch file (`--launch`, default `launch/airsim.launch.py`; `LOCSIM_ROS_SETUP` sources more workspaces) |
-| `launch/airsim.launch.py` | AirSim's ROS 2 node, the `/cmd_vel` relay, weather, the `enu` frame, recording (`record:=DIR`) |
+| `launch/airsim.launch.py` | AirSim's ROS 2 node, the `/cmd_vel` relay, weather, the `enu` frame, recording (`record:=DIR`), the autopilot (`autopilot:=true`), rviz2 (`rviz:=true`) |
+| `launch/ros_params.py` | the projects' `params:="..."` → ROS arguments, doubles made doubles |
+| `autopilot.py` | flies the figure eight (speed and height swinging) over `/cmd_vel` |
 | `evaluate.py` | scores a recording against the truth (evo) |
 | `params.sh` | `--name value` → ROS parameters, for the projects' run scripts |
 | `keyboard.sh` | fly from a terminal with ROS 2's `teleop_twist_keyboard` (`/cmd_vel`) |
@@ -65,8 +73,8 @@ airsim/.venv/bin/evo_traj bag2 RUN_DIR /pole/fused --ref /tf:enu.drone --plot
 | `patches/` | our fixes to Cosys-AirSim: building with Unreal 5.2's toolchain, the ROS node's frame conversions, camera poses and the external camera's gimbal, and skipping the empty images AirSim sometimes returns (the node crashed on them) |
 | `unreal/` | the Unreal project; `Plugins/AirSim` links into the submodule; `Source/LocalizationSim/DroneKeyboard` flies the drone with W A S D in its window (`-DroneKeyboard`) |
 
-Also in localization_core: `sim/src/ros_sim.hpp` (ROS parameters and tf2
-lookups the programs share), `sim/tools/locsim_city.py` (Antwerp's open 3D
+Also in localization_core: `sim/src/ros_sim.hpp` (tf2 lookups and pose
+messages the programs share), `sim/tools/locsim_city.py` (Antwerp's open 3D
 data as `.glb` tiles, with PROJ). City data: "Antwerpen in 3D", Stad
 Antwerpen, under the Flemish open data licence (free reuse with
 attribution).
