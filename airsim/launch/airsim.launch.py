@@ -19,6 +19,8 @@ Arguments:
     autopilot_params  its ROS parameters, NAME:=VALUE separated by spaces
                 (names it does not declare are ignored, so the projects pass
                 all of their program's parameters)
+    rviz        true: start rviz2 with rviz_config (the projects' sim/rviz/)
+    rviz_config  the rviz2 configuration file
 
 Frames: AirSim's ROS node publishes TF world -> drone/odom_local -> drone,
 world being x north, y west, z up at the PlayerStart. This file adds the
@@ -77,6 +79,14 @@ def autopilot(context):
                  output={"stdout": "log", "stderr": "log"})]
 
 
+def rviz(context):
+    if LaunchConfiguration("rviz").perform(context) != "true":
+        return []
+    config = LaunchConfiguration("rviz_config").perform(context)
+    return [Node(package="rviz2", executable="rviz2", name="rviz2", arguments=["-d", config] if config else [],
+                 output={"stdout": "log", "stderr": "log"})]
+
+
 def stop_without_airsim(event, context):
     # AirSim's node (from its own launch file) died: without it the programs
     # would wait for data forever.
@@ -95,6 +105,8 @@ def generate_launch_description():
         DeclareLaunchArgument("record_topics", default_value=""),
         DeclareLaunchArgument("autopilot", default_value="false"),
         DeclareLaunchArgument("autopilot_params", default_value=""),
+        DeclareLaunchArgument("rviz", default_value="false"),
+        DeclareLaunchArgument("rviz_config", default_value=""),
 
         # enu -> world (see the docstring): world's x axis (north) is enu's y.
         Node(package="tf2_ros", executable="static_transform_publisher", name="enu_frame",
@@ -125,5 +137,6 @@ def generate_launch_description():
         OpaqueFunction(function=weather),
         OpaqueFunction(function=recorder),
         OpaqueFunction(function=autopilot),
+        OpaqueFunction(function=rviz),
         RegisterEventHandler(OnProcessExit(on_exit=stop_without_airsim)),
     ])
