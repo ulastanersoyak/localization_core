@@ -59,8 +59,9 @@ distrobox enter "$box" -- bash -c "
   set -e
   sudo apt-get update -qq
   sudo apt-get install -y -qq ros-jazzy-mavros-msgs ros-jazzy-geographic-msgs \
-    ros-jazzy-topic-tools ros-jazzy-teleop-twist-keyboard python3-venv \
-    libgeographiclib-dev libeigen3-dev
+    ros-jazzy-topic-tools ros-jazzy-teleop-twist-keyboard ros-jazzy-rviz2 \
+    ros-jazzy-generate-parameter-library python3-venv \
+    libgeographiclib-dev libeigen3-dev libgtest-dev
   . /opt/ros/jazzy/setup.bash
   cd '$airsim/ros2'
   # AirSim's Python client (weather.py, drone_localization's detectors and
