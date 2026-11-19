@@ -2,8 +2,8 @@
 #define ROS_SIM_HPP
 
 // Small helpers the projects' simulation programs (ROS 2 nodes for
-// Cosys-AirSim, airsim/README.md) share: read-only parameters with a
-// description, TF lookups into the "enu" frame, and pose messages.
+// Cosys-AirSim, airsim/README.md) share: TF lookups into the "enu" frame and
+// pose messages. (Their parameters come from generate_parameter_library.)
 //
 // Frames: AirSim's ROS node publishes TF world -> drone/odom_local -> drone
 // (x north, y west, z up); airsim/launch/airsim.launch.py adds enu -> world.
@@ -28,35 +28,6 @@
 namespace ros_sim
 {
 inline const std::string world_frame = "enu";
-
-// Declares a read-only parameter with its description (shown by
-// `ros2 param describe <node> <name>`) and returns its value. A double
-// parameter also takes a whole number: `-p duration:=60` arrives as an
-// integer, which ROS would otherwise refuse.
-template <typename T>
-T
-declare (rclcpp::Node &node, const std::string &name, const T &default_value,
-         const std::string &description)
-{
-  rcl_interfaces::msg::ParameterDescriptor descriptor;
-  descriptor.description = description;
-  descriptor.read_only = true;
-  if constexpr (std::is_same_v<T, double>)
-    {
-      descriptor.dynamic_typing = true;
-      const auto value
-          = node.declare_parameter (name, rclcpp::ParameterValue (default_value), descriptor);
-      if (value.get_type () == rclcpp::ParameterType::PARAMETER_INTEGER)
-        {
-          return static_cast<double> (value.get<std::int64_t> ());
-        }
-      return value.get<double> ();
-    }
-  else
-    {
-      return node.declare_parameter<T> (name, default_value, descriptor);
-    }
-}
 
 // A pose in the enu frame, for the estimates the programs publish (and
 // evaluate.py scores from a recording).
