@@ -18,8 +18,8 @@ guides: [getting started](https://ulastanersoyak.github.io/localization_core/get
 | target | path | what |
 |---|---|---|
 | `utm` | `includes/utm`, `src/utm` | lat/lon ⇄ utm and grid convergence, converted by geographiclib |
-| `localization_core_headers` | `includes/kalman`, `includes/utility` | header only: the generic `kalman_filter` (eigen), the measurement types `gps_fix` and `imu_sample`, thread safe `queue` |
-| `localization_core_sim` | `sim/src` | header only, for the simulation programs (ros 2): tf2 lookups in the `enu` frame and pose messages |
+| `localization_core_headers` | `includes/kalman` | header only: the generic `kalman_filter` (eigen), the measurement types `gps_fix` and `imu_sample` |
+| `localization_core_sim` | `sim/src` | header only, for the simulation programs: tf2 lookups in the `enu` frame and pose messages (ros 2), the ahrs error model `imu_errors` |
 
 also here: `airsim/` (the simulator side, see `airsim/README.md`),
 `cmake/common.cmake` (c++ standard and warnings for all three repositories),

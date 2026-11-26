@@ -102,7 +102,7 @@ target_link_libraries(my_tool PRIVATE utm localization_core_headers)</code></pre
 <table>
 <tr><th>target</th><th>gives you</th><th>needs</th></tr>
 <tr><td><code>utm</code></td><td>lat/lon ⇄ utm, grid convergence</td><td>GeographicLib</td></tr>
-<tr><td><code>localization_core_headers</code></td><td><code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>imu_sample</code>, <code>queue</code></td><td>Eigen</td></tr>
+<tr><td><code>localization_core_headers</code></td><td><code>kalman_filter&lt;N&gt;</code>, <code>gps_fix</code>, <code>imu_sample</code></td><td>Eigen</td></tr>
 <tr><td><code>localization_core_sim</code></td><td><code>ros_sim.hpp</code>: tf2 lookups in the <code>enu</code> frame, pose messages</td><td>ROS 2, tf2, Eigen</td></tr>
 </table>
 <p>The tests here only build when this is the top-level project. Add <code>-DLOCALIZATION_CORE_BUILD_TESTS=ON</code> to build them from a project too.</p>
