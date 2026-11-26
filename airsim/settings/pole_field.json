@@ -2,7 +2,15 @@
   "SettingsVersion": 2.0,
   "SimMode": "Multirotor",
   "ClockSpeed": 1,
-  "ViewMode": "SpringArmChase",
+  "ViewMode": "Manual",
+  "CameraDirector": {
+    "X": -22.0,
+    "Y": 5.0,
+    "Z": -9.0,
+    "Pitch": -8.0,
+    "Roll": 0.0,
+    "Yaw": 0.0
+  },
   "OriginGeopoint": {
     "Latitude": 39.97656,
     "Longitude": 32.73812,
