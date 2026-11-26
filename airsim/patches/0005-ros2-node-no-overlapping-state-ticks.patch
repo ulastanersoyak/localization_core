@@ -1,0 +1,20 @@
+diff --git a/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp b/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
+--- a/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
++++ b/ros2/src/airsim_ros_pkgs/src/airsim_ros_wrapper.cpp
+@@ -1344,6 +1344,16 @@
+ 
+ void AirsimROSWrapper::drone_state_timer_cb()
+ {
++    // The timer is in a reentrant callback group on a multi-threaded
++    // executor: when a tick takes longer than the period (slow RPC calls, at
++    // startup above all), the next one would run beside it and rewrite the
++    // vehicle state (curr_odom_ and its frame id strings) while the first
++    // publishes it, which ends in fastcdr's "string contains null
++    // characters". Skip the tick instead.
++    static std::mutex running_mutex;
++    std::unique_lock<std::mutex> running(running_mutex, std::try_to_lock);
++    if (!running.owns_lock())
++        return;
+     try {
+         // todo this is global origin
+         origin_geo_point_pub_->publish(origin_geo_point_msg_);
