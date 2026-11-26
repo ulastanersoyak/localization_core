@@ -4,9 +4,10 @@
 # the /cmd_vel relay, weather); the projects pass their own, which includes
 # that one and adds their programs.
 #
-#   airsim/run.sh drone            Antwerp, a quadrotor you fly in the Unreal
+#   airsim/run.sh [drone]          Antwerp, a quadrotor you fly in the Unreal
 #                                  window: W A S D, Space / Shift, Q / E
-#                                  (unreal/Source/LocalizationSim/DroneKeyboard)
+#                                  (unreal/Source/LocalizationSim/DroneKeyboard);
+#                                  the default when no mode or --settings is given
 #   airsim/run.sh free             Antwerp, no vehicle, a free camera
 #                                  (arrow keys / W A S D, Page Up / Page Down)
 #   airsim/run.sh --map Field|Antwerp --settings FILE   anything else
@@ -36,12 +37,13 @@ settings=$here/settings/antwerp_drone.json
 launch=$here/launch/airsim.launch.py
 unreal_args=()
 launch_args=()
+keyboard=default  # drone mode's keyboard flying: on unless a mode or --settings says otherwise
 while [[ $# -gt 0 ]]; do
   case $1 in
-    drone) map=Antwerp; settings=$here/settings/antwerp_drone.json; unreal_args+=(-DroneKeyboard); shift ;;
-    free) map=Antwerp; settings=$here/settings/antwerp_free.json; launch_args+=(vehicle:=false); shift ;;
+    drone) map=Antwerp; settings=$here/settings/antwerp_drone.json; keyboard=on; shift ;;
+    free) map=Antwerp; settings=$here/settings/antwerp_free.json; launch_args+=(vehicle:=false); keyboard=off; shift ;;
     --map) map=$2; shift 2 ;;
-    --settings) settings=$(realpath "$2"); shift 2 ;;
+    --settings) settings=$(realpath "$2"); [[ $keyboard == on ]] || keyboard=off; shift 2 ;;
     --launch) launch=$(realpath "$2"); shift 2 ;;
     --offscreen) unreal_args+=(-RenderOffscreen); shift ;;
     --speed) unreal_args+=("-DroneKeyboardSpeed=$2"); shift 2 ;;
@@ -50,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown option $1 (see the top of $0)" >&2; exit 2 ;;
   esac
 done
+[[ $keyboard == off ]] || unreal_args+=(-DroneKeyboard)
 if [[ ! -f $here/unreal/Content/Maps/$map.umap ]]; then
   echo "map $map is not built yet, run airsim/setup.sh" >&2
   exit 1
