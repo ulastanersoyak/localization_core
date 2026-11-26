@@ -18,7 +18,8 @@ char
 band_letter (double latitude)
 {
   constexpr std::string_view letters{ "CDEFGHJKLMNPQRSTUVWX" };
-  const auto band = static_cast<std::size_t> (std::floor ((latitude + 80) / 8));
+  const auto band
+      = static_cast<std::size_t> (std::floor ((latitude + 80) / 8));
   return letters[std::min (band, letters.size () - 1)];
 }
 } // namespace
